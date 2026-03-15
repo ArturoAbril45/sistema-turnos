@@ -8,146 +8,228 @@
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #f0f6ff;
-      color: #1e293b;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
       height: 100vh;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
       overflow: hidden;
       user-select: none;
+      position: relative;
+      -webkit-app-region: drag;
     }
 
+    /* Imagen de fondo */
+    .bg {
+      position: fixed;
+      inset: 0;
+      background: url('../public/doctor-bg.jpg') center center / cover no-repeat;
+      z-index: 0;
+    }
+
+    /* Capa oscura sobre la imagen */
+    .bg-overlay {
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(
+        135deg,
+        rgba(10, 20, 60, 0.82) 0%,
+        rgba(15, 40, 100, 0.75) 50%,
+        rgba(5, 30, 80, 0.85) 100%
+      );
+      z-index: 1;
+    }
+
+    /* Card */
     .card {
-      background: #ffffff;
-      border: 1px solid #cbd5e1;
+      position: relative;
+      z-index: 10;
+      background: rgba(255, 255, 255, 0.10);
+      border: 1px solid rgba(255,255,255,0.20);
       border-radius: 10px;
-      padding: 48px 56px 44px;
+      width: 400px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.3);
+      overflow: hidden;
+      -webkit-app-region: no-drag;
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+
+
+    .card-body {
+      padding: 38px 42px 34px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 20px;
-      min-width: 400px;
-      box-shadow: 0 2px 16px rgba(0,0,0,0.07);
     }
 
-    .icon {
-      width: 64px;
-      height: 64px;
-      background: #2563eb;
-      border-radius: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .icon svg {
-      width: 36px;
-      height: 36px;
-      fill: white;
-    }
-
-    .title {
-      font-size: 1.6rem;
-      font-weight: 700;
-      color: #1e293b;
-      text-align: center;
-      letter-spacing: -0.3px;
-    }
-
-    .tagline {
-      font-size: 0.875rem;
-      color: #64748b;
+    /* Título */
+    .brand {
+      width: 100%;
+      margin-bottom: 28px;
       text-align: center;
     }
 
+
+    .brand-text .name {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: -0.5px;
+      line-height: 1.2;
+    }
+
+    .brand-text .sub {
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.5);
+      margin-top: 3px;
+    }
+
+    /* Divider */
     .divider {
       width: 100%;
       height: 1px;
-      background: #e2e8f0;
+      background: rgba(255,255,255,0.12);
+      margin-bottom: 22px;
     }
 
+    /* Créditos */
     .credits {
-      text-align: center;
-      line-height: 1.7;
+      width: 100%;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 6px;
     }
 
-    .credits .by {
+    .credits-by {
       font-size: 0.72rem;
-      color: #94a3b8;
-      text-transform: uppercase;
-      letter-spacing: 1.2px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.45);
     }
 
-    .credits .company {
-      font-size: 1rem;
-      font-weight: 700;
-      color: #2563eb;
-    }
-
-    .credits .author {
+    .credits-company {
       font-size: 0.82rem;
-      color: #64748b;
+      font-weight: 800;
+      color: #93c5fd;
     }
 
+    .credits-sep {
+      font-size: 0.72rem;
+      color: rgba(255,255,255,0.25);
+    }
+
+    .credits-author {
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: rgba(255,255,255,0.55);
+    }
+
+    /* Botón */
     .btn {
       width: 100%;
-      padding: 12px 0;
-      background: #2563eb;
+      padding: 13px 0;
+      background: #1d4ed8;
       color: #fff;
-      font-size: 0.95rem;
-      font-weight: 600;
+      font-size: 0.88rem;
+      font-weight: 700;
       border: none;
       border-radius: 6px;
       cursor: pointer;
-      letter-spacing: 0.2px;
-      transition: background 0.15s;
+      letter-spacing: 0.3px;
+      transition: background 0.12s, transform 0.08s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
     }
 
-    .btn:hover  { background: #1d4ed8; }
-    .btn:active { background: #1e40af; }
+    .btn:hover  { background: #1e40af; }
+    .btn:active { transform: scale(0.985); background: #1e3a8a; }
 
+    /* Fecha ingreso */
+    .fecha-ingreso {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      padding: 0 2px;
+    }
+
+    .fecha-label {
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: rgba(255,255,255,0.45);
+      text-transform: uppercase;
+      letter-spacing: 0.9px;
+    }
+
+    .fecha-valor {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: rgba(255,255,255,0.75);
+      letter-spacing: 0.2px;
+    }
+
+    /* Versión */
     .version {
       position: fixed;
-      bottom: 16px;
-      font-size: 0.70rem;
-      color: #94a3b8;
+      bottom: 14px;
+      z-index: 10;
+      font-size: 0.67rem;
+      color: rgba(255,255,255,0.35);
+      letter-spacing: 0.5px;
     }
   </style>
 </head>
 <body>
 
+  <div class="bg"></div>
+  <div class="bg-overlay"></div>
+
   <div class="card">
-    <div class="icon">
-      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm-7 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm6 13H6v-.6c0-2 4-3.1 6-3.1s6 1.1 6 3.1V19z"/>
-      </svg>
+    <div class="card-body">
+
+      <div class="brand">
+        <div class="brand-text">
+          <div class="name">Sistema de Turnos</div>
+          <div class="sub">Gestión de atención médica</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="credits">
+        <span class="credits-by">Desarrollado por</span>
+        <span class="credits-company">OpenKode</span>
+        <span class="credits-sep">·</span>
+        <span class="credits-author">Arturo Abril</span>
+      </div>
+
+      <div class="fecha-ingreso">
+        <span class="fecha-label">Fecha de ingreso</span>
+        <span class="fecha-valor" id="fechaHoy"></span>
+      </div>
+
+      <button class="btn" onclick="continuar()">Ingresar al sistema</button>
+
     </div>
-
-    <div>
-      <div class="title">Sistema de Turnos</div>
-      <div class="tagline">Gestión de atención médica</div>
-    </div>
-
-    <div class="divider"></div>
-
-    <div class="credits">
-      <div class="by">Desarrollado por</div>
-      <div class="company">OpenKode</div>
-      <div class="author">Author: Arturo Abril</div>
-    </div>
-
-    <button class="btn" onclick="continuar()">Continuar</button>
   </div>
 
-  <div class="version">v1.0.0</div>
+  <div class="version">v1.0.0 · OpenKode</div>
 
   <script>
     function continuar() {
       window.__electronContinuar && window.__electronContinuar();
     }
+
+    const now = new Date();
+    const opts = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    document.getElementById('fechaHoy').textContent =
+      now.toLocaleDateString('es-MX', opts).replace(/^\w/, c => c.toUpperCase());
   </script>
 </body>
 </html>
