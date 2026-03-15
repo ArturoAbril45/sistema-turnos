@@ -7,6 +7,15 @@ import { ArrowLeftIcon, PlayIcon, ArrowRightIcon, UsersIcon } from '@/components
 
 interface Estado { current: Turno | null; waitingCount: number }
 
+const TIPO_LABEL: Record<string, { label: string; color: string }> = {
+  CO: { label: 'Consulta Médica',     color: '#2563eb' },
+  AP: { label: 'Aplicación / T. Presión', color: '#16a34a' },
+  CM: { label: 'Certificado Médico',  color: '#7c3aed' },
+  PR: { label: 'Procedimiento',       color: '#d97706' },
+  NE: { label: 'Nebulización',        color: '#0891b2' },
+  GL: { label: 'Glucosa',             color: '#e11d48' },
+};
+
 export default function Consultorio() {
   const [estado, setEstado]   = useState<Estado>({ current: null, waitingCount: 0 });
   const [loading, setLoading] = useState<string | null>(null);
@@ -95,6 +104,23 @@ export default function Consultorio() {
             )}
           </p>
         </div>
+
+        {/* Especialidad del turno */}
+        {estado.current && (() => {
+          const info = TIPO_LABEL[estado.current.tipo];
+          return info ? (
+            <div
+              className="px-5 py-2 rounded-full text-sm font-bold"
+              style={{
+                background: `${info.color}22`,
+                border: `1px solid ${info.color}55`,
+                color: info.color === '#2563eb' ? '#93c5fd' : '#fff',
+              }}
+            >
+              {info.label}
+            </div>
+          ) : null;
+        })()}
 
         {/* Badge pacientes en espera */}
         <div

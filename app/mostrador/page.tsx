@@ -39,6 +39,7 @@ export default function Mostrador() {
   const [browserUrl, setBrowserUrl]         = useState('');
   const [confirmLimpiar, setConfirmLimpiar] = useState(false);
   const [busy, setBusy]                     = useState<string | null>(null);
+  const [nombre, setNombre]                 = useState('');
   const dragItem = useRef<number | null>(null);
   const dragOver = useRef<number | null>(null);
 
@@ -65,9 +66,10 @@ export default function Mostrador() {
     setBusy(null);
   }
 
-  const generarTurno  = (tipo: string) => run(tipo, () =>
-    fetch('/api/turnos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tipo }) }).then(() => {})
-  );
+  const generarTurno  = (tipo: string) => run(tipo, async () => {
+    await fetch('/api/turnos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tipo, nombre: nombre.trim() || undefined }) });
+    setNombre('');
+  });
   const siguiente     = ()             => run('sig', () => fetch('/api/siguiente', { method: 'POST' }).then(() => {}));
   const cancelar      = (id: number)   => run(`del-${id}`, () => fetch(`/api/turnos/${id}`, { method: 'DELETE' }).then(() => {}));
   const guardarEdicion= ()             => run('edit', async () => {
@@ -197,9 +199,20 @@ export default function Mostrador() {
               )}
             </div>
             {!reordenando
-              ? <button onClick={iniciarReorden} className="text-xs font-semibold text-slate-500 hover:text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition">
-                  Reordenar
-                </button>
+              ? <div className="flex items-center gap-1">
+                  <a href="/api/exportar" download
+                    className="text-xs font-semibold text-slate-400 hover:text-green-700 px-2.5 py-1.5 rounded-lg hover:bg-green-50 transition flex items-center gap-1"
+                    title="Exportar bitácora CSV">
+                    <svg xmlns="http://www.w3.org/2000/svg" width={13} height={13} viewBox="0 0 24 24" fill="none"
+                      stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    CSV
+                  </a>
+                  <button onClick={iniciarReorden} className="text-xs font-semibold text-slate-500 hover:text-blue-700 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition">
+                    Reordenar
+                  </button>
+                </div>
               : <div className="flex gap-2">
                   <button onClick={guardarReorden} className="flex items-center gap-1 text-xs font-bold bg-blue-700 text-white px-3 py-1.5 rounded-lg hover:bg-blue-800 transition">
                     <CheckIcon size={12} /> Guardar
@@ -230,16 +243,23 @@ export default function Mostrador() {
                   {/* Número */}
                   <span className="text-slate-300 text-xs font-bold w-8 text-center shrink-0">{i + 1}</span>
 
-                  {/* Código */}
+                  {/* Código + nombre */}
                   <div className="flex-1 flex items-center gap-3 py-3.5 min-w-0">
-                    <span className="font-extrabold text-xl sm:text-2xl tracking-tight leading-none" style={{ color: ti.hex }}>
+                    <span className="font-extrabold text-xl sm:text-2xl tracking-tight leading-none shrink-0" style={{ color: ti.hex }}>
                       {t.codigo}
                     </span>
-                    <span className="hidden xs:inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border"
-                      style={{ background: ti.bg, color: ti.text, borderColor: ti.border }}>
-                      <ti.Icon size={10} />
-                      {ti.short}
-                    </span>
+                    <div className="flex flex-col min-w-0">
+                      <span className="hidden xs:inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border w-fit"
+                        style={{ background: ti.bg, color: ti.text, borderColor: ti.border }}>
+                        <ti.Icon size={10} />
+                        {ti.short}
+                      </span>
+                      {t.nombre && (
+                        <span className="text-xs text-slate-500 font-medium truncate mt-0.5 max-w-[120px]" title={t.nombre}>
+                          {t.nombre}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Acciones */}
@@ -284,6 +304,22 @@ export default function Mostrador() {
 
           {/* Botones */}
           <div className="flex-1 overflow-y-auto p-3 sm:p-4">
+
+            {/* Campo nombre — bitácora interna */}
+            <div className="mb-3">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+                Nombre del paciente <span className="font-normal normal-case text-slate-300">(opcional · solo interno)</span>
+              </label>
+              <input
+                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition placeholder:text-slate-300"
+                placeholder="Ej. Carolina Hernández"
+                value={nombre}
+                onChange={e => setNombre(e.target.value)}
+                onKeyDown={e => e.key === 'Escape' && setNombre('')}
+                maxLength={60}
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-2.5">
               {TIPOS.map(({ tipo, label, Icon: TipoIcon, hex, bg, border, text }) => {
                 const count   = tipoCounts[tipo] ?? 0;

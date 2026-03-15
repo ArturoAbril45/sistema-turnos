@@ -58,7 +58,7 @@ export function getEstado() {
 
 // ─── Mutaciones ──────────────────────────────────────────────────────────────
 
-export function createTurno(tipo: TipoTurno): Turno {
+export function createTurno(tipo: TipoTurno, nombre?: string): Turno {
   const state = readState();
   const numero = (state.counters[tipo] ?? 0) + 1;
   const codigo = `${tipo}${String(numero).padStart(2, '0')}`;
@@ -77,6 +77,7 @@ export function createTurno(tipo: TipoTurno): Turno {
     tipo,
     numero,
     codigo,
+    ...(nombre?.trim() ? { nombre: nombre.trim() } : {}),
     estado: 'esperando',
     posicion,
     created_at: new Date().toISOString(),

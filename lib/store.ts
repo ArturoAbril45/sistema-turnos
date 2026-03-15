@@ -9,6 +9,7 @@ export interface Turno {
   tipo: TipoTurno;
   numero: number;
   codigo: string;
+  nombre?: string;
   estado: EstadoTurno;
   posicion: number;
   atendido_orden?: number;

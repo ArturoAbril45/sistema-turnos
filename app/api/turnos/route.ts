@@ -7,7 +7,7 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const { tipo } = await request.json();
-  const turno = createTurno(tipo as TipoTurno);
+  const { tipo, nombre } = await request.json();
+  const turno = createTurno(tipo as TipoTurno, nombre);
   return NextResponse.json(turno);
 }

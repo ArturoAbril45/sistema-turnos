@@ -18,6 +18,7 @@
     "asar": false,
     "files": [
       "electron/main.js",
+      "electron/splash.html",
       "package.json"
     ],
     "extraResources": [

@@ -6,9 +6,10 @@ const path       = require('path');
 // Una sola instancia — si ya hay una abierta, enfocarla y salir
 if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
 
-const PORT      = 3000;
-const NEXT_URL  = `http://localhost:${PORT}`;
+const PORT       = 3000;
+const RENDER_URL = 'https://sistema-turnos-m93n.onrender.com';
 const isPackaged = app.isPackaged;
+const NEXT_URL   = isPackaged ? RENDER_URL : `http://localhost:${PORT}`;
 
 let nextProcess = null;
 
@@ -85,12 +86,25 @@ function createWindow() {
     webPreferences: {
       webviewTag:       true,
       nodeIntegration:  false,
-      contextIsolation: true,
+      contextIsolation: false,   // necesario para exponer __electronContinuar
     },
   });
 
   win.setMenu(null);
-  win.loadURL(NEXT_URL);
+
+  // Mostrar splash primero
+  const splashPath = path.join(__dirname, 'splash.html');
+  win.loadFile(splashPath);
+
+  // Exponer función para que el botón "Continuar" navegue a la app
+  win.webContents.on('did-finish-load', () => {
+    win.webContents.executeJavaScript(`
+      window.__electronContinuar = function() {
+        location.href = ${JSON.stringify(NEXT_URL)};
+      };
+    `);
+  });
+
   win.focus();
 }
 
@@ -167,33 +181,19 @@ app.on('web-contents-created', (_event, contents) => {
 
 /* ── Inicio ────────────────────────────────────────────────────────────── */
 app.whenReady().then(async () => {
-  try {
-    startNext();
-  } catch (err) {
-    dialog.showErrorBoxSync('Error al iniciar servidor',
-      `No se pudo iniciar Next.js:\n\n${err.message}\n\nRuta: ${
-        app.isPackaged
-          ? path.join(process.resourcesPath, '.next', 'standalone', 'server.js')
-          : 'dev mode'
-      }`
-    );
-    app.quit();
-    return;
+  if (!isPackaged) {
+    // Desarrollo: levantar next dev localmente
+    try {
+      startNext();
+      await waitForServer(120);
+    } catch (err) {
+      dialog.showErrorBoxSync('Error al iniciar servidor', err.message);
+      app.quit();
+      return;
+    }
   }
-
-  console.log('Esperando que Next.js arranque...');
-  try {
-    await waitForServer(120); // 60 segundos de espera
-    console.log('Next.js listo — abriendo ventana');
-    createWindow();
-  } catch (err) {
-    dialog.showErrorBoxSync('Servidor no respondió',
-      `Next.js no respondió en 60 segundos.\n\n${err.message}\n\nRuta standalone: ${
-        path.join(process.resourcesPath, '.next', 'standalone')
-      }`
-    );
-    app.quit();
-  }
+  // Producción: abrir directo la URL de Render
+  createWindow();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

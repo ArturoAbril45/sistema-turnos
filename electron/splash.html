@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sistema de Turnos</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f6ff;
+      color: #1e293b;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    .card {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      padding: 48px 56px 44px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      min-width: 400px;
+      box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+    }
+
+    .icon {
+      width: 64px;
+      height: 64px;
+      background: #2563eb;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .icon svg {
+      width: 36px;
+      height: 36px;
+      fill: white;
+    }
+
+    .title {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #1e293b;
+      text-align: center;
+      letter-spacing: -0.3px;
+    }
+
+    .tagline {
+      font-size: 0.875rem;
+      color: #64748b;
+      text-align: center;
+    }
+
+    .divider {
+      width: 100%;
+      height: 1px;
+      background: #e2e8f0;
+    }
+
+    .credits {
+      text-align: center;
+      line-height: 1.7;
+    }
+
+    .credits .by {
+      font-size: 0.72rem;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+    }
+
+    .credits .company {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #2563eb;
+    }
+
+    .credits .author {
+      font-size: 0.82rem;
+      color: #64748b;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 12px 0;
+      background: #2563eb;
+      color: #fff;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      letter-spacing: 0.2px;
+      transition: background 0.15s;
+    }
+
+    .btn:hover  { background: #1d4ed8; }
+    .btn:active { background: #1e40af; }
+
+    .version {
+      position: fixed;
+      bottom: 16px;
+      font-size: 0.70rem;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <div class="icon">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M19 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2zm-7 3a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm6 13H6v-.6c0-2 4-3.1 6-3.1s6 1.1 6 3.1V19z"/>
+      </svg>
+    </div>
+
+    <div>
+      <div class="title">Sistema de Turnos</div>
+      <div class="tagline">Gestión de atención médica</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="credits">
+      <div class="by">Desarrollado por</div>
+      <div class="company">OpenKode</div>
+      <div class="author">Author: Arturo Abril</div>
+    </div>
+
+    <button class="btn" onclick="continuar()">Continuar</button>
+  </div>
+
+  <div class="version">v1.0.0</div>
+
+  <script>
+    function continuar() {
+      window.__electronContinuar && window.__electronContinuar();
+    }
+  </script>
+</body>
+</html>
