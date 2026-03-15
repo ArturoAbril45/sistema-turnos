@@ -31,6 +31,21 @@ const SHORTCUTS = [
   { label: 'Google',  url: 'https://www.google.com'  },
 ];
 
+const STREAMING = [
+  { label: 'YouTube',      url: 'https://www.youtube.com',        color: '#ff0000' },
+  { label: 'Netflix',      url: 'https://www.netflix.com',        color: '#e50914' },
+  { label: 'Amazon Prime', url: 'https://www.primevideo.com',     color: '#00a8e0' },
+];
+
+declare global {
+  interface Window {
+    electronAPI?: {
+      openStreaming:  (url: string) => void;
+      closeStreaming: () => void;
+    };
+  }
+}
+
 function playChime() {
   try {
     const ctx = new AudioContext();
@@ -73,7 +88,8 @@ export default function Sala() {
   const [loading, setLoading] = useState(false);
   const [canBack, setCanBack] = useState(false);
   const [canFwd,  setCanFwd]  = useState(false);
-  const [isElectron, setIsElectron] = useState(false);
+  const [isElectron, setIsElectron]       = useState(false);
+  const [streamingActive, setStreamingActive] = useState(false);
 
   const prevCodeRef = useRef<string | null>(null);
   const webviewRef  = useRef<WebviewElement | null>(null);
@@ -131,6 +147,16 @@ export default function Sala() {
       } catch { /* noop */ }
     };
   }, [isElectron]);
+
+  function startStreaming(url: string) {
+    window.electronAPI?.openStreaming(url);
+    setStreamingActive(true);
+  }
+
+  function stopStreaming() {
+    window.electronAPI?.closeStreaming();
+    setStreamingActive(false);
+  }
 
   function navigate(raw: string) {
     let url = raw.trim();
@@ -205,6 +231,36 @@ export default function Sala() {
 
       {/* ── Panel derecho — navegador ───────────────────────────────────────── */}
       <div className="flex-1 flex flex-col overflow-hidden">
+
+        {/* ── Barra de Streaming (solo Electron) ── */}
+        {isElectron && (
+          <div className="flex items-center gap-2 px-3 py-2 shrink-0 bg-slate-50 border-b border-slate-200">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest shrink-0">Streaming</span>
+            <div className="flex items-center gap-1.5 flex-1">
+              {STREAMING.map(({ label, url, color }) => (
+                <button key={label} onClick={() => startStreaming(url)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs font-bold transition active:scale-95 hover:shadow-sm"
+                  style={{
+                    background: streamingActive ? '#f1f5f9' : `${color}15`,
+                    borderColor: `${color}40`,
+                    color: streamingActive ? '#94a3b8' : color,
+                  }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            {streamingActive && (
+              <button onClick={stopStreaming}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-red-200 bg-red-50 text-red-600 text-xs font-bold hover:bg-red-100 transition active:scale-95 shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" width={11} height={11} viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18M6 6l12 12"/>
+                </svg>
+                Cerrar
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Barra de navegación */}
         <div className="flex items-center gap-2 px-3 py-2 shrink-0 bg-white border-b border-slate-200">

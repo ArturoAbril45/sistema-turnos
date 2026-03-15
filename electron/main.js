@@ -1,9 +1,10 @@
-const { app, BrowserWindow, dialog, utilityProcess } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, screen, utilityProcess } = require('electron');
 const { spawn }  = require('child_process');
 const net        = require('net');
 const path       = require('path');
+const fs         = require('fs');
 
-// Una sola instancia — si ya hay una abierta, enfocarla y salir
+// Una sola instancia
 if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
 
 const PORT       = 3000;
@@ -11,17 +12,81 @@ const RENDER_URL = 'https://sistema-turnos-m93n.onrender.com';
 const isPackaged = app.isPackaged;
 const NEXT_URL   = isPackaged ? RENDER_URL : `http://localhost:${PORT}`;
 
-let nextProcess = null;
+let nextProcess    = null;
+let mainWin        = null;
+let chromeProcess  = null;
 
-/* ── 1. Arrancar el servidor Next.js ───────────────────────────────────── */
+/* ── Chrome paths (Windows) ────────────────────────────────────────────── */
+const CHROME_PATHS = [
+  'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+  'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+  process.env.LOCALAPPDATA + '\\Google\\Chrome\\Application\\chrome.exe',
+];
+
+function findChrome() {
+  for (const p of CHROME_PATHS) {
+    try { if (fs.existsSync(p)) return p; } catch (_) {}
+  }
+  return null;
+}
+
+/* ── Abrir streaming en Chrome posicionado ─────────────────────────────── */
+function openStreaming(url) {
+  const chromePath = findChrome();
+  if (!chromePath) {
+    dialog.showErrorBox('Chrome no encontrado',
+      'Instale Google Chrome para usar esta función.');
+    return;
+  }
+
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+  const streamW = Math.floor(width * 0.68);
+  const turnosW = width - streamW;
+
+  // Cerrar Chrome anterior si existe
+  closeStreaming();
+
+  // Reposicionar ventana de turnos a la derecha
+  if (mainWin) {
+    mainWin.setBounds({ x: streamW, y: 0, width: turnosW, height }, { animate: false });
+    mainWin.focus();
+  }
+
+  // Abrir Chrome en el lado izquierdo
+  chromeProcess = spawn(chromePath, [
+    `--app=${url}`,
+    `--window-position=0,0`,
+    `--window-size=${streamW},${height}`,
+    '--disable-features=Translate',
+    '--no-first-run',
+  ], { detached: true, stdio: 'ignore' });
+
+  chromeProcess.unref();
+}
+
+/* ── Cerrar streaming y restaurar ventana ──────────────────────────────── */
+function closeStreaming() {
+  if (chromeProcess) {
+    try { chromeProcess.kill(); } catch (_) {}
+    chromeProcess = null;
+  }
+  // Restaurar ventana a pantalla completa
+  if (mainWin) {
+    const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+    mainWin.setBounds({ x: 0, y: 0, width, height }, { animate: false });
+  }
+}
+
+/* ── IPC desde renderer ─────────────────────────────────────────────────── */
+ipcMain.on('open-streaming',  (_e, url) => openStreaming(url));
+ipcMain.on('close-streaming', ()        => closeStreaming());
+
+/* ── 1. Arrancar Next.js ───────────────────────────────────────────────── */
 function startNext() {
   if (isPackaged) {
-    // Producción: usar utilityProcess (Node.js embebido de Electron)
     const standaloneDir = path.join(process.resourcesPath, '.next', 'standalone');
     const serverScript  = path.join(standaloneDir, 'server.js');
-
-    const logPath = path.join(app.getPath('userData'), 'server.log');
-    const fs = require('fs');
+    const logPath       = path.join(app.getPath('userData'), 'server.log');
 
     nextProcess = utilityProcess.fork(serverScript, [], {
       cwd: standaloneDir,
@@ -39,27 +104,20 @@ function startNext() {
     let serverLog = '';
     nextProcess.stdout?.on('data', d => { serverLog += d.toString(); fs.appendFileSync(logPath, d); });
     nextProcess.stderr?.on('data', d => { serverLog += d.toString(); fs.appendFileSync(logPath, d); });
-
     nextProcess.on('exit', code => {
-      if (code !== 0) {
-        dialog.showErrorBox('Error del servidor',
-          `Código: ${code}\nLog: ${logPath}\n\n${serverLog.slice(-800)}`
-        );
-      }
+      if (code !== 0) dialog.showErrorBox('Error del servidor',
+        `Código: ${code}\nLog: ${logPath}\n\n${serverLog.slice(-800)}`);
     });
   } else {
-    // Desarrollo: arrancar next dev normalmente
     nextProcess = spawn('npm', ['run', 'dev'], {
-      cwd:   path.join(__dirname, '..'),
-      shell: true,
-      stdio: 'inherit',
-      env:   { ...process.env, FORCE_COLOR: '1' },
+      cwd: path.join(__dirname, '..'), shell: true, stdio: 'inherit',
+      env: { ...process.env, FORCE_COLOR: '1' },
     });
     nextProcess.on('error', err => console.error('Error arrancando Next.js:', err));
   }
 }
 
-/* ── 2. Esperar que el puerto esté listo ───────────────────────────────── */
+/* ── 2. Esperar puerto ─────────────────────────────────────────────────── */
 function waitForServer(retries = 60) {
   return new Promise((resolve, reject) => {
     function attempt() {
@@ -75,136 +133,94 @@ function waitForServer(retries = 60) {
   });
 }
 
-/* ── 3. Crear ventana principal ────────────────────────────────────────── */
+/* ── 3. Crear ventana ──────────────────────────────────────────────────── */
 function createWindow() {
-  const win = new BrowserWindow({
-    width:  1440,
-    height: 900,
-    show:   true,
-    backgroundColor: '#0f172a',
-    title:  'Sistema de Turnos',
+  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+
+  mainWin = new BrowserWindow({
+    width, height, x: 0, y: 0,
+    show: true,
+    backgroundColor: '#f4f6f9',
+    title: 'Sistema de Turnos',
     webPreferences: {
+      preload:          path.join(__dirname, 'preload.js'),
       webviewTag:       true,
       nodeIntegration:  false,
-      contextIsolation: false,   // necesario para exponer __electronContinuar
+      contextIsolation: true,
     },
   });
 
-  win.setMenu(null);
+  mainWin.setMenu(null);
 
-  // Mostrar splash primero
   const splashPath = path.join(__dirname, 'splash.html');
-  win.loadFile(splashPath);
+  mainWin.loadFile(splashPath);
 
-  // Exponer función para que el botón "Continuar" navegue a la app
-  win.webContents.on('did-finish-load', () => {
-    win.webContents.executeJavaScript(`
-      window.__electronContinuar = function() {
-        location.href = ${JSON.stringify(NEXT_URL)};
-      };
+  mainWin.webContents.on('did-finish-load', () => {
+    mainWin.webContents.executeJavaScript(`
+      if (typeof window.__electronContinuar === 'undefined') {
+        window.__electronContinuar = function() {
+          location.href = ${JSON.stringify(NEXT_URL)};
+        };
+      }
     `);
   });
 
-  win.focus();
+  mainWin.on('closed', () => {
+    closeStreaming();
+    mainWin = null;
+  });
+
+  mainWin.focus();
 }
 
-/* ── Fullscreen simulado: el video llena el webview sin tapar el panel ── */
+/* ── Fullscreen simulado ───────────────────────────────────────────────── */
 const FS_SCRIPT = `
 (function () {
   if (window.__fsPatchDone) return;
   window.__fsPatchDone = true;
-
-  let fsEl = null;
-  let savedStyle = '';
-
+  let fsEl = null, savedStyle = '';
   function enterFS(el) {
-    if (fsEl) exitFS();
-    fsEl = el;
-    savedStyle = el.getAttribute('style') || '';
-    el.style.cssText = [
-      el.style.cssText,
-      'position:fixed!important',
-      'top:0!important',
-      'left:0!important',
-      'width:100vw!important',
-      'height:100vh!important',
-      'z-index:2147483647!important',
-      'background:#000!important',
-    ].join(';');
-    try {
-      Object.defineProperty(document, 'fullscreenElement',       { get: () => fsEl, configurable: true });
-      Object.defineProperty(document, 'webkitFullscreenElement', { get: () => fsEl, configurable: true });
-    } catch(e) {}
-    el.dispatchEvent(new Event('fullscreenchange', { bubbles: true }));
-    document.dispatchEvent(new Event('fullscreenchange'));
-    document.dispatchEvent(new Event('webkitfullscreenchange'));
+    if (fsEl) exitFS(); fsEl = el; savedStyle = el.getAttribute('style') || '';
+    el.style.cssText = [el.style.cssText,'position:fixed!important','top:0!important','left:0!important','width:100vw!important','height:100vh!important','z-index:2147483647!important','background:#000!important'].join(';');
+    try { Object.defineProperty(document,'fullscreenElement',{get:()=>fsEl,configurable:true}); Object.defineProperty(document,'webkitFullscreenElement',{get:()=>fsEl,configurable:true}); } catch(e){}
+    el.dispatchEvent(new Event('fullscreenchange',{bubbles:true})); document.dispatchEvent(new Event('fullscreenchange')); document.dispatchEvent(new Event('webkitfullscreenchange'));
     return Promise.resolve();
   }
-
   function exitFS() {
-    if (!fsEl) return Promise.resolve();
-    const el = fsEl;
-    fsEl = null;
-    if (savedStyle) { el.setAttribute('style', savedStyle); }
-    else            { el.removeAttribute('style'); }
-    try {
-      Object.defineProperty(document, 'fullscreenElement',       { get: () => null, configurable: true });
-      Object.defineProperty(document, 'webkitFullscreenElement', { get: () => null, configurable: true });
-    } catch(e) {}
-    el.dispatchEvent(new Event('fullscreenchange', { bubbles: true }));
-    document.dispatchEvent(new Event('fullscreenchange'));
-    document.dispatchEvent(new Event('webkitfullscreenchange'));
+    if (!fsEl) return Promise.resolve(); const el=fsEl; fsEl=null;
+    if (savedStyle) el.setAttribute('style',savedStyle); else el.removeAttribute('style');
+    try { Object.defineProperty(document,'fullscreenElement',{get:()=>null,configurable:true}); Object.defineProperty(document,'webkitFullscreenElement',{get:()=>null,configurable:true}); } catch(e){}
+    el.dispatchEvent(new Event('fullscreenchange',{bubbles:true})); document.dispatchEvent(new Event('fullscreenchange')); document.dispatchEvent(new Event('webkitfullscreenchange'));
     return Promise.resolve();
   }
-
-  Element.prototype.requestFullscreen       = function() { return enterFS(this); };
-  Element.prototype.webkitRequestFullscreen = function() { return enterFS(this); };
-  Element.prototype.mozRequestFullScreen    = function() { return enterFS(this); };
-  Element.prototype.msRequestFullscreen     = function() { return enterFS(this); };
-  document.exitFullscreen       = exitFS;
-  document.webkitExitFullscreen = exitFS;
-  document.mozCancelFullScreen  = exitFS;
-  document.msExitFullscreen     = exitFS;
-})();
-`;
+  Element.prototype.requestFullscreen=function(){return enterFS(this);}; Element.prototype.webkitRequestFullscreen=function(){return enterFS(this);}; Element.prototype.mozRequestFullScreen=function(){return enterFS(this);}; Element.prototype.msRequestFullscreen=function(){return enterFS(this);};
+  document.exitFullscreen=exitFS; document.webkitExitFullscreen=exitFS; document.mozCancelFullScreen=exitFS; document.msExitFullscreen=exitFS;
+})();`;
 
 app.on('web-contents-created', (_event, contents) => {
   if (contents.getType() === 'webview') {
-    contents.on('did-finish-load', () => {
-      contents.executeJavaScript(FS_SCRIPT).catch(() => {});
-    });
-    contents.on('enter-html-full-screen', () => {
-      BrowserWindow.getAllWindows().forEach(w => w.setFullScreen(false));
-    });
+    contents.on('did-finish-load', () => contents.executeJavaScript(FS_SCRIPT).catch(() => {}));
+    contents.on('enter-html-full-screen', () => BrowserWindow.getAllWindows().forEach(w => w.setFullScreen(false)));
   }
 });
 
 /* ── Inicio ────────────────────────────────────────────────────────────── */
 app.whenReady().then(async () => {
   if (!isPackaged) {
-    // Desarrollo: levantar next dev localmente
-    try {
-      startNext();
-      await waitForServer(120);
-    } catch (err) {
-      dialog.showErrorBoxSync('Error al iniciar servidor', err.message);
-      app.quit();
-      return;
-    }
+    try { startNext(); await waitForServer(120); }
+    catch (err) { dialog.showErrorBoxSync('Error al iniciar servidor', err.message); app.quit(); return; }
   }
-  // Producción: abrir directo la URL de Render
   createWindow();
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
+  app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
 });
 
 app.on('window-all-closed', () => {
+  closeStreaming();
   if (nextProcess) { try { nextProcess.kill(); } catch(_){} }
   if (process.platform !== 'darwin') app.quit();
 });
 
 app.on('will-quit', () => {
+  closeStreaming();
   if (nextProcess) { try { nextProcess.kill(); } catch(_){} }
 });
