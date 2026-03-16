@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, screen, utilityProcess, session } = require('electron');
+const { app, BrowserWindow, WebContentsView, dialog, ipcMain, screen, utilityProcess, session } = require('electron');
 const { spawn }  = require('child_process');
 const net        = require('net');
 const path       = require('path');
@@ -131,48 +131,37 @@ function closeStreaming() {
   }
 }
 
-/* ── Ventana hija Electron para DRM (Netflix / Amazon Prime) ───────────── */
-let streamWin = null;
+/* ── WebContentsView para DRM dentro de la ventana principal ───────────── */
+let streamView = null;
+const SIDEBAR_W = 224; // ancho sidebar turnos (w-56 Tailwind = 224px)
 
-function openStreamingWindow(url) {
-  if (streamWin) { try { streamWin.close(); } catch (_) {} streamWin = null; }
+function openStreamingView(url) {
+  if (!mainWin) return;
+  closeStreamingView();
 
-  const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-  const streamW = Math.floor(width * 0.70);
-  const turnosW = width - streamW;
+  const { width, height } = mainWin.getBounds();
 
-  if (mainWin) mainWin.setBounds({ x: streamW, y: 0, width: turnosW, height }, { animate: false });
-
-  streamWin = new BrowserWindow({
-    x: 0, y: 0, width: streamW, height,
-    frame: false,
-    show: true,
+  streamView = new WebContentsView({
     webPreferences: { plugins: true, contextIsolation: true, nodeIntegration: false },
   });
 
-  streamWin.loadURL(url);
-  streamWin.on('closed', () => {
-    streamWin = null;
-    if (mainWin) {
-      const { width: w, height: h } = screen.getPrimaryDisplay().workAreaSize;
-      mainWin.setBounds({ x: 0, y: 0, width: w, height: h }, { animate: false });
-    }
-  });
+  mainWin.contentView.addChildView(streamView);
+  streamView.setBounds({ x: SIDEBAR_W, y: 0, width: width - SIDEBAR_W, height });
+  streamView.webContents.loadURL(url);
 }
 
-function closeStreamingWindow() {
-  if (streamWin) { try { streamWin.close(); } catch (_) {} streamWin = null; }
-  if (mainWin) {
-    const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-    mainWin.setBounds({ x: 0, y: 0, width, height }, { animate: false });
+function closeStreamingView() {
+  if (streamView && mainWin) {
+    try { mainWin.contentView.removeChildView(streamView); streamView.webContents.destroy(); } catch (_) {}
+    streamView = null;
   }
 }
 
 /* ── IPC desde renderer ─────────────────────────────────────────────────── */
 ipcMain.on('open-streaming',        (_e, url) => openStreaming(url));
 ipcMain.on('close-streaming',       ()        => closeStreaming());
-ipcMain.on('open-streaming-window', (_e, url) => openStreamingWindow(url));
-ipcMain.on('close-streaming-window',()        => closeStreamingWindow());
+ipcMain.on('open-streaming-window', (_e, url) => openStreamingView(url));
+ipcMain.on('close-streaming-window',()        => closeStreamingView());
 
 /* ── 1. Arrancar Next.js ───────────────────────────────────────────────── */
 function startNext() {
