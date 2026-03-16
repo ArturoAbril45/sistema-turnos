@@ -298,13 +298,6 @@ export default function Sala() {
             />
           </div>
 
-          {/* Shortcuts */}
-          {SHORTCUTS.map(({ label, url }) => (
-            <button key={label} onClick={() => navigate(url)}
-              className="px-3 h-8 rounded border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-100 hover:border-slate-300 transition shrink-0 bg-white">
-              {label}
-            </button>
-          ))}
         </div>
 
         {/* Contenido */}
