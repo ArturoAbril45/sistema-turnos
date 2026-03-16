@@ -32,9 +32,9 @@ const SHORTCUTS = [
 ];
 
 const STREAMING = [
-  { label: 'YouTube',      url: 'https://www.youtube.com',        color: '#ff0000' },
-  { label: 'Netflix',      url: 'https://www.netflix.com',        color: '#e50914' },
-  { label: 'Amazon Prime', url: 'https://www.primevideo.com',     color: '#00a8e0' },
+  { label: 'YouTube',      url: 'https://www.youtube.com',    color: '#ff0000', external: false },
+  { label: 'Netflix',      url: 'https://www.netflix.com',    color: '#e50914', external: true  },
+  { label: 'Amazon Prime', url: 'https://www.primevideo.com', color: '#00a8e0', external: true  },
 ];
 
 declare global {
@@ -148,14 +148,19 @@ export default function Sala() {
     };
   }, [isElectron]);
 
-  function startStreaming(url: string) {
-    // Cargar directo en el webview interno (Widevine habilitado desde Edge)
-    navigate(url);
-    setStreamingActive(true);
+  function startStreaming(url: string, external: boolean) {
+    if (external && window.electronAPI) {
+      // Netflix / Amazon Prime → Edge externo sin bordes, lado izquierdo
+      window.electronAPI.openStreaming(url);
+      setStreamingActive(true);
+    } else {
+      // YouTube → webview interno
+      navigate(url);
+    }
   }
 
   function stopStreaming() {
-    navigate('https://www.youtube.com');
+    if (window.electronAPI) window.electronAPI.closeStreaming();
     setStreamingActive(false);
   }
 
@@ -238,8 +243,8 @@ export default function Sala() {
           <div className="flex items-center gap-2 px-3 py-2 shrink-0 bg-slate-50 border-b border-slate-200">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest shrink-0">Streaming</span>
             <div className="flex items-center gap-1.5 flex-1">
-              {STREAMING.map(({ label, url, color }) => (
-                <button key={label} onClick={() => startStreaming(url)}
+              {STREAMING.map(({ label, url, color, external }) => (
+                <button key={label} onClick={() => startStreaming(url, external)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs font-bold transition active:scale-95 hover:shadow-sm"
                   style={{
                     background: streamingActive ? '#f1f5f9' : `${color}15`,
