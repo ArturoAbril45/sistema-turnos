@@ -4,6 +4,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { Turno } from '@/lib/queue';
 
+async function tauriInvoke(cmd: string, args?: Record<string, unknown>) {
+  try {
+    const { invoke } = await import('@tauri-apps/api/core');
+    return await invoke(cmd, args);
+  } catch { /* noop */ }
+}
+
 interface WebviewElement extends HTMLElement {
   src: string;
   loadURL(url: string): void;
@@ -32,9 +39,9 @@ const SHORTCUTS = [
 ];
 
 const STREAMING = [
-  { label: 'YouTube',      url: 'https://www.youtube.com',    color: '#ff0000', external: false },
-  { label: 'Netflix',      url: 'https://www.netflix.com',    color: '#e50914', external: true  },
-  { label: 'Amazon Prime', url: 'https://www.primevideo.com', color: '#00a8e0', external: true  },
+  { label: 'YouTube',      url: 'https://www.youtube.com',    color: '#ff0000' },
+  { label: 'Netflix',      url: 'https://www.netflix.com',    color: '#e50914' },
+  { label: 'Amazon Prime', url: 'https://www.primevideo.com', color: '#00a8e0' },
 ];
 
 declare global {
@@ -70,12 +77,18 @@ function speakTurno(codigo: string, wv: WebviewElement | null) {
     const utter = new SpeechSynthesisUtterance(`Turno ${codigo.replace(/(\D+)(\d+)/, '$1 $2')}`);
     utter.lang = 'es-ES';
     utter.rate = 0.82;
-
-    // Silenciar webview mientras habla
-    utter.onstart = () => { try { wv?.setAudioMuted(true);  } catch { /* noop */ } };
-    utter.onend   = () => { try { wv?.setAudioMuted(false); } catch { /* noop */ } };
-    utter.onerror = () => { try { wv?.setAudioMuted(false); } catch { /* noop */ } };
-
+    utter.onstart = () => {
+      tauriInvoke('set_streaming_muted', { muted: true });
+      try { wv?.setAudioMuted(true);  } catch { /* noop */ }
+    };
+    utter.onend = () => {
+      tauriInvoke('set_streaming_muted', { muted: false });
+      try { wv?.setAudioMuted(false); } catch { /* noop */ }
+    };
+    utter.onerror = () => {
+      tauriInvoke('set_streaming_muted', { muted: false });
+      try { wv?.setAudioMuted(false); } catch { /* noop */ }
+    };
     setTimeout(() => window.speechSynthesis.speak(utter), 900);
   } catch { /* noop */ }
 }
@@ -90,7 +103,8 @@ export default function Sala() {
   const [loading, setLoading] = useState(false);
   const [canBack, setCanBack] = useState(false);
   const [canFwd,  setCanFwd]  = useState(false);
-  const [isElectron, setIsElectron]       = useState(false);
+  const [isTauri,    setIsTauri]    = useState(false);
+  const [isElectron, setIsElectron] = useState(false);
   const [streamingActive, setStreamingActive] = useState(false);
 
   const prevCodeRef = useRef<string | null>(null);
@@ -110,7 +124,20 @@ export default function Sala() {
     } catch { /* retry */ }
   }
 
-  useEffect(() => { setIsElectron(navigator.userAgent.includes('Electron')); }, []);
+  useEffect(() => {
+    const _isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
+    const isElec   = navigator.userAgent.includes('Electron');
+    setIsTauri(_isTauri);
+    setIsElectron(_isTauri || isElec);
+  }, []);
+
+  // Al montar, verificar si ya hay una ventana de streaming abierta
+  useEffect(() => {
+    if (!isTauri) return;
+    tauriInvoke('check_streaming').then(exists => {
+      if (exists) setStreamingActive(true);
+    });
+  }, [isTauri]);
 
   useEffect(() => {
     fetchEstado();
@@ -150,19 +177,24 @@ export default function Sala() {
     };
   }, [isElectron]);
 
-  function startStreaming(url: string, external: boolean) {
-    if (external && window.electronAPI) {
-      // Netflix / Amazon Prime → BrowserWindow hija Electron (Widevine nativo)
+  function startStreaming(url: string) {
+    if (isTauri) {
+      // Tauri: child webview dentro de la misma ventana (WebView2 nativo = DRM OK)
+      tauriInvoke('open_streaming', { url });
+      setStreamingActive(true);
+    } else if (window.electronAPI) {
+      // Electron: ventana externa
       window.electronAPI.openStreamingWindow(url);
       setStreamingActive(true);
-    } else {
-      // YouTube → webview interno
-      navigate(url);
     }
   }
 
   function stopStreaming() {
-    if (window.electronAPI) window.electronAPI.closeStreamingWindow();
+    if (isTauri) {
+      tauriInvoke('close_streaming');
+    } else if (window.electronAPI) {
+      window.electronAPI.closeStreamingWindow();
+    }
     setStreamingActive(false);
   }
 
@@ -230,6 +262,40 @@ export default function Sala() {
           </div>
         </div>
 
+        {/* ── Streaming (solo en Tauri/Electron) ── */}
+        {isElectron && (
+          <div className="px-3 py-3 border-t border-blue-500">
+            <p className="text-[10px] font-bold text-blue-300 uppercase tracking-widest mb-2">
+              Streaming
+            </p>
+            {!streamingActive ? (
+              <div className="flex flex-col gap-1.5">
+                {STREAMING.map(({ label, url, color }) => (
+                  <button key={label}
+                    onClick={() => startStreaming(url)}
+                    className="text-xs font-bold px-2 py-1.5 rounded border transition active:scale-95 text-left"
+                    style={{
+                      background: `${color}20`,
+                      borderColor: `${color}50`,
+                      color: color,
+                    }}>
+                    ▶ {label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <button onClick={stopStreaming}
+                className="w-full flex items-center justify-center gap-1.5 px-2 py-2 rounded border border-red-300 bg-red-100 text-red-600 text-xs font-bold hover:bg-red-200 transition active:scale-95">
+                <svg xmlns="http://www.w3.org/2000/svg" width={10} height={10} viewBox="0 0 24 24"
+                  fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18M6 6l12 12"/>
+                </svg>
+                Cerrar streaming
+              </button>
+            )}
+          </div>
+        )}
+
         {/* En espera */}
         <div className="px-5 py-4 border-t border-blue-500 bg-blue-700">
           <p className="text-xs text-blue-300 uppercase tracking-widest mb-0.5">En espera</p>
@@ -237,110 +303,97 @@ export default function Sala() {
         </div>
       </aside>
 
-      {/* ── Panel derecho — navegador ───────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      {/* ── Panel derecho — navegador (solo Electron clásico, no Tauri) ─── */}
+      {!isTauri && (
+        <div className="flex-1 flex flex-col overflow-hidden">
 
-        {/* ── Barra de Streaming (solo Electron) ── */}
-        {isElectron && (
-          <div className="flex items-center gap-2 px-3 py-2 shrink-0 bg-slate-50 border-b border-slate-200">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest shrink-0">Streaming</span>
-            <div className="flex items-center gap-1.5 flex-1">
-              {STREAMING.map(({ label, url, color, external }) => (
-                <button key={label} onClick={() => startStreaming(url, external)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs font-bold transition active:scale-95 hover:shadow-sm"
-                  style={{
-                    background: streamingActive ? '#f1f5f9' : `${color}15`,
-                    borderColor: `${color}40`,
-                    color: streamingActive ? '#94a3b8' : color,
-                  }}>
-                  {label}
-                </button>
-              ))}
+          {/* Barra de navegación */}
+          <div className="flex items-center gap-2 px-3 py-2 shrink-0 bg-white border-b border-slate-200">
+
+            <button onClick={() => isElectron && webviewRef.current?.goBack()} disabled={!canBack}
+              className="w-8 h-8 flex items-center justify-center rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-25 transition">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" width={15} height={15}><path d="m15 18-6-6 6-6"/></svg>
+            </button>
+            <button onClick={() => isElectron && webviewRef.current?.goForward()} disabled={!canFwd}
+              className="w-8 h-8 flex items-center justify-center rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-25 transition">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" width={15} height={15}><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+            <button onClick={() => isElectron ? webviewRef.current?.reload() : navigate(urlBar)}
+              className="w-8 h-8 flex items-center justify-center rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition">
+              {loading
+                ? <svg className="animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width={14} height={14}><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                : <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" width={14} height={14}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+              }
+            </button>
+
+            <div className="flex-1 flex items-center gap-2 rounded border border-slate-200 bg-slate-50 px-3 h-8 focus-within:border-sky-400 focus-within:bg-white transition">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" width={13} height={13} className="shrink-0">
+                <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+              </svg>
+              <input
+                className="flex-1 bg-transparent text-slate-700 text-xs outline-none placeholder-slate-400 min-w-0"
+                value={urlBar}
+                onChange={e => setUrlBar(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && navigate(urlBar)}
+                onFocus={e => e.target.select()}
+                placeholder="Escribe una URL o búsqueda..."
+              />
             </div>
-            {streamingActive && (
-              <button onClick={stopStreaming}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded border border-red-200 bg-red-50 text-red-600 text-xs font-bold hover:bg-red-100 transition active:scale-95 shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" width={11} height={11} viewBox="0 0 24 24"
-                  fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M18 6 6 18M6 6l12 12"/>
-                </svg>
-                Cerrar
-              </button>
+          </div>
+
+          {/* Contenido */}
+          <div className="flex-1 relative overflow-hidden bg-white">
+            {isElectron ? (
+              React.createElement('webview', {
+                ref: webviewRef,
+                src: frameUrl,
+                allowpopups: 'true',
+                style: { width: '100%', height: '100%', display: 'flex' },
+              })
+            ) : (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-8 bg-slate-50">
+                <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-red-50 border border-red-200">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" width={24} height={24}>
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+                  </svg>
+                </div>
+                <div className="text-center">
+                  <p className="text-slate-700 font-semibold text-sm mb-1">Navegador no disponible</p>
+                  <p className="text-slate-400 text-xs max-w-xs leading-relaxed">
+                    Abrí la sala desde la aplicación de escritorio para usar el navegador embebido.
+                  </p>
+                </div>
+                <div className="flex gap-2 mt-1">
+                  {SHORTCUTS.map(({ label, url }) => (
+                    <a key={label} href={url} target="_blank" rel="noopener noreferrer"
+                      className="px-4 py-2 rounded border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-100 transition bg-white">
+                      {label}
+                    </a>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Barra de navegación */}
-        <div className="flex items-center gap-2 px-3 py-2 shrink-0 bg-white border-b border-slate-200">
-
-          <button onClick={() => isElectron && webviewRef.current?.goBack()} disabled={!canBack}
-            className="w-8 h-8 flex items-center justify-center rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-25 transition">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" width={15} height={15}><path d="m15 18-6-6 6-6"/></svg>
-          </button>
-          <button onClick={() => isElectron && webviewRef.current?.goForward()} disabled={!canFwd}
-            className="w-8 h-8 flex items-center justify-center rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 disabled:opacity-25 transition">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" width={15} height={15}><path d="m9 18 6-6-6-6"/></svg>
-          </button>
-          <button onClick={() => isElectron ? webviewRef.current?.reload() : navigate(urlBar)}
-            className="w-8 h-8 flex items-center justify-center rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition">
-            {loading
-              ? <svg className="animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" width={14} height={14}><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
-              : <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" width={14} height={14}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
-            }
-          </button>
-
-          {/* URL bar */}
-          <div className="flex-1 flex items-center gap-2 rounded border border-slate-200 bg-slate-50 px-3 h-8 focus-within:border-sky-400 focus-within:bg-white transition">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" width={13} height={13} className="shrink-0">
-              <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
-              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-            </svg>
-            <input
-              className="flex-1 bg-transparent text-slate-700 text-xs outline-none placeholder-slate-400 min-w-0"
-              value={urlBar}
-              onChange={e => setUrlBar(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && navigate(urlBar)}
-              onFocus={e => e.target.select()}
-              placeholder="Escribe una URL o búsqueda..."
-            />
+      {/* ── En Tauri: el área de contenido es manejada por el child webview ── */}
+      {isTauri && !streamingActive && (
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 bg-slate-50">
+          <p className="text-slate-400 text-sm">Seleccioná un servicio de streaming en el panel izquierdo</p>
+          <div className="flex gap-2">
+            {STREAMING.map(({ label, url, color }) => (
+              <button key={label}
+                onClick={() => startStreaming(url)}
+                className="px-5 py-2.5 rounded border text-sm font-bold transition active:scale-95 hover:shadow-md"
+                style={{ background: `${color}15`, borderColor: `${color}40`, color: color }}>
+                ▶ {label}
+              </button>
+            ))}
           </div>
-
         </div>
-
-        {/* Contenido */}
-        <div className="flex-1 relative overflow-hidden bg-white">
-          {isElectron ? (
-            React.createElement('webview', {
-              ref: webviewRef,
-              src: frameUrl,
-              allowpopups: 'true',
-              style: { width: '100%', height: '100%', display: 'flex' },
-            })
-          ) : (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-8 bg-slate-50">
-              <div className="w-12 h-12 rounded-lg flex items-center justify-center bg-red-50 border border-red-200">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" width={24} height={24}>
-                  <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
-                </svg>
-              </div>
-              <div className="text-center">
-                <p className="text-slate-700 font-semibold text-sm mb-1">Navegador no disponible</p>
-                <p className="text-slate-400 text-xs max-w-xs leading-relaxed">
-                  Abrí la sala desde la aplicación de escritorio para usar el navegador embebido.
-                </p>
-              </div>
-              <div className="flex gap-2 mt-1">
-                {SHORTCUTS.map(({ label, url }) => (
-                  <a key={label} href={url} target="_blank" rel="noopener noreferrer"
-                    className="px-4 py-2 rounded border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-100 transition bg-white">
-                    {label}
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+      )}
 
       <style>{`
         @keyframes fadeIn {

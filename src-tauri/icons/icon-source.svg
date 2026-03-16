@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#111111"/>
+      <stop offset="100%" stop-color="#2a2a2a"/>
+    </linearGradient>
+    <linearGradient id="bgNotch" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#111111"/>
+      <stop offset="100%" stop-color="#2a2a2a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Fondo redondeado -->
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+
+  <!-- Sombra del ticket -->
+  <rect x="116" y="144" width="296" height="248" rx="20" fill="#1e3a8a" opacity="0.4"/>
+
+  <!-- Ticket principal -->
+  <rect x="108" y="136" width="296" height="248" rx="20" fill="white"/>
+
+  <!-- Parte superior del ticket (fondo suave) -->
+  <rect x="108" y="136" width="296" height="100" rx="20" fill="#eff6ff"/>
+  <rect x="108" y="216" width="296" height="20" fill="#eff6ff"/>
+
+  <!-- Separador punteado -->
+  <line x1="136" y1="236" x2="376" y2="236"
+        stroke="#93c5fd" stroke-width="3"
+        stroke-dasharray="10 8" stroke-linecap="round"/>
+
+  <!-- Muescas del ticket (círculos que recortan los costados) -->
+  <circle cx="108" cy="236" r="22" fill="url(#bgNotch)"/>
+  <circle cx="404" cy="236" r="22" fill="url(#bgNotch)"/>
+
+  <!-- Etiqueta TURNO -->
+  <text x="256" y="198"
+        font-family="'Segoe UI', system-ui, Arial, sans-serif"
+        font-weight="800"
+        font-size="36"
+        fill="#2563eb"
+        text-anchor="middle"
+        letter-spacing="9">TURNO</text>
+
+  <!-- Número grande -->
+  <text x="256" y="346"
+        font-family="'Segoe UI', system-ui, Arial, sans-serif"
+        font-weight="900"
+        font-size="108"
+        fill="#1e3a8a"
+        text-anchor="middle">01</text>
+</svg>

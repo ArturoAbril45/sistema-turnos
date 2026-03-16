@@ -24,6 +24,17 @@ const TIPOS = [
 interface Estado  { current: Turno | null; waiting: Turno[]; waitingCount: number }
 interface EditMod { id: number; codigo: string }
 
+const TIPO_LABEL: Record<string, string> = {
+  CO: 'Consulta', AP: 'Aplicación', CM: 'Certificado',
+  PR: 'Procedimiento', NE: 'Nebulización', GL: 'Glucosa',
+};
+const TIPO_COLOR: Record<string, string> = {
+  CO: '#2563eb', AP: '#16a34a', CM: '#7c3aed',
+  PR: '#d97706', NE: '#0891b2', GL: '#e11d48',
+};
+
+interface HistEntry { id: number; codigo: string; tipo: string; nombre?: string; atendido_at: string }
+
 export default function Mostrador() {
   const [estado, setEstado]                 = useState<Estado>({ current: null, waiting: [], waitingCount: 0 });
   const [tab, setTab]                       = useState<'cola' | 'nuevo'>('nuevo');
@@ -34,6 +45,8 @@ export default function Mostrador() {
   const [browserUrl, setBrowserUrl]         = useState('');
   const [confirmLimpiar, setConfirmLimpiar] = useState(false);
   const [busy, setBusy]                     = useState<string | null>(null);
+  const [showHistorial, setShowHistorial]   = useState(false);
+  const [historial, setHistorial]           = useState<HistEntry[]>([]);
   const [nombre, setNombre]                 = useState('');
   const [pinOk, setPinOk]                   = useState(false);
   const dragItem = useRef<number | null>(null);
@@ -99,6 +112,12 @@ export default function Mostrador() {
   const guardarConfig = async () => {
     await fetch('/api/config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clave: 'browser_url', valor: browserUrl }) });
     setShowConfig(false);
+  };
+
+  const abrirHistorial = async () => {
+    const r = await fetch('/api/historial');
+    setHistorial(await r.json());
+    setShowHistorial(true);
   };
 
   const lista      = reordenando ? ordenTemp : estado.waiting;
@@ -169,6 +188,16 @@ export default function Mostrador() {
             className="hidden sm:flex items-center gap-2 bg-blue-700 hover:bg-blue-800 disabled:opacity-40 text-white font-bold text-sm px-4 py-2 rounded transition active:scale-95 shrink-0">
             {busy === 'sig' ? <Spinner white /> : <PlayIcon size={14} />}
             Llamar siguiente
+          </button>
+
+          {/* Historial */}
+          <button onClick={abrirHistorial} title="Historial de atenciones"
+            className="p-2 rounded text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition shrink-0">
+            <svg xmlns="http://www.w3.org/2000/svg" width={17} height={17} viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/>
+              <path d="M12 7v5l4 2"/>
+            </svg>
           </button>
 
           {/* Config */}
@@ -464,6 +493,72 @@ export default function Mostrador() {
                 className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded font-bold text-sm text-slate-600 bg-slate-100 hover:bg-slate-200 transition active:scale-95">
                 <XMarkIcon size={13} /> Cancelar
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ MODAL HISTORIAL ══ */}
+      {showHistorial && (
+        <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+          <div className="bg-white w-full sm:max-w-lg h-[85vh] sm:h-[75vh] rounded-t-xl sm:rounded-xl shadow-xl border border-slate-200 flex flex-col">
+            {/* Handle móvil */}
+            <div className="sm:hidden flex justify-center pt-3 pb-1 shrink-0">
+              <div className="w-8 h-1 rounded-full bg-slate-200" />
+            </div>
+            {/* Header */}
+            <div className="shrink-0 px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <h2 className="font-extrabold text-slate-900 text-base">Historial de atenciones</h2>
+                <p className="text-slate-400 text-xs mt-0.5">Registro permanente — no se borra al limpiar la cola</p>
+              </div>
+              <button onClick={() => setShowHistorial(false)}
+                className="p-1.5 rounded hover:bg-slate-100 text-slate-400 transition">
+                <XMarkIcon size={16} />
+              </button>
+            </div>
+            {/* Lista */}
+            <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-1.5">
+              {historial.length === 0 && (
+                <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center py-16">
+                  <svg xmlns="http://www.w3.org/2000/svg" width={32} height={32} viewBox="0 0 24 24"
+                    fill="none" stroke="#cbd5e1" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/>
+                    <path d="M12 7v5l4 2"/>
+                  </svg>
+                  <p className="text-sm font-semibold text-slate-400">Sin registros aún</p>
+                  <p className="text-xs text-slate-300">Los turnos atendidos aparecerán aquí</p>
+                </div>
+              )}
+              {historial.map((h, i) => {
+                const color = TIPO_COLOR[h.tipo] ?? '#64748b';
+                const label = TIPO_LABEL[h.tipo] ?? h.tipo;
+                const fecha = new Date(h.atendido_at);
+                const horaStr = fecha.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+                const fechaStr = fecha.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                return (
+                  <div key={h.id}
+                    className="bg-white border border-slate-100 rounded-lg flex items-center gap-3 px-4 py-2.5"
+                    style={{ borderLeftWidth: 3, borderLeftColor: color }}>
+                    <span className="w-6 text-center text-xs font-bold text-slate-300 shrink-0 tabular-nums">{historial.length - i}</span>
+                    <span className="font-extrabold text-lg tracking-tight leading-none shrink-0 w-14"
+                      style={{ color }}>{h.codigo}</span>
+                    <div className="flex-1 min-w-0">
+                      <span className="text-[11px] font-semibold px-1.5 py-0.5 rounded border"
+                        style={{ color, borderColor: color + '40', background: color + '12' }}>
+                        {label}
+                      </span>
+                      {h.nombre && (
+                        <p className="text-[11px] text-slate-400 mt-0.5 truncate">{h.nombre}</p>
+                      )}
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-xs font-bold text-slate-600 tabular-nums">{horaStr}</p>
+                      <p className="text-[10px] text-slate-400 tabular-nums">{fechaStr}</p>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

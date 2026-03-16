@@ -1,8 +1,15 @@
-import { readState, writeState, TipoTurno, Turno } from './store';
+import { readState, writeState, TipoTurno, Turno, appendHistorial } from './store';
 
 export type { TipoTurno, Turno };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
+
+// Tipos que se intercalan con los turnos normales
+const INTERCALADOS: TipoTurno[] = ['AP', 'GL', 'NE'];
+
+function esIntercalado(tipo: TipoTurno): boolean {
+  return INTERCALADOS.includes(tipo);
+}
 
 function getWaiting(turnos: Turno[]): Turno[] {
   return turnos
@@ -18,27 +25,40 @@ function renormalize(turnos: Turno[]): void {
 }
 
 /**
- * Calcula la posición de inserción para un nuevo turno AP:
- * - Si ya hay ≥1 AP en espera → pasa al frente de la cola inmediatamente
- * - Si no hay AP en espera → se intercala después del primer CO en espera
+ * Redistribuye los turnos intercalados (AP, GL) dentro de la cola:
+ * - Si hay exactamente 1 intercalado → va después del primer turno normal
+ * - Si hay ≥2 intercalados (saturación) → se distribuyen 1:1 con los normales,
+ *   el intercalado siempre primero en cada par: INTER, CO, INTER, CO, ...
  */
-function calcAPPosition(turnos: Turno[]): number {
+function rebalanceIntercalados(turnos: Turno[]): void {
   const waiting = getWaiting(turnos);
-  const apWaiting = waiting.filter((t) => t.tipo === 'AP');
+  const interTurnos = waiting.filter((t) => esIntercalado(t.tipo));
+  const normalTurnos = waiting.filter((t) => !esIntercalado(t.tipo));
 
-  if (apWaiting.length >= 1) {
-    // Insertar al frente
-    return waiting.length > 0 ? waiting[0].posicion - 5 : 10;
+  if (interTurnos.length === 0) return;
+
+  if (interTurnos.length === 1) {
+    // Un solo intercalado: va después del primer turno normal
+    if (normalTurnos.length === 0) {
+      interTurnos[0].posicion = 5;
+      return;
+    }
+    const firstNormal = normalTurnos[0];
+    const secondNormal = normalTurnos[1];
+    interTurnos[0].posicion = secondNormal
+      ? (firstNormal.posicion + secondNormal.posicion) / 2
+      : firstNormal.posicion + 5;
+    return;
   }
 
-  // Insertar después del primer CO
-  const firstCO = waiting.find((t) => t.tipo === 'CO');
-  if (!firstCO) {
-    return waiting.length > 0 ? waiting[waiting.length - 1].posicion + 10 : 10;
+  // ≥2 intercalados (saturación): INTER, CO, INTER, CO, ...
+  const newOrder: Turno[] = [];
+  for (let i = 0; i < interTurnos.length; i++) {
+    newOrder.push(interTurnos[i]);
+    if (i < normalTurnos.length) newOrder.push(normalTurnos[i]);
   }
-  const idx = waiting.indexOf(firstCO);
-  const next = waiting[idx + 1];
-  return next ? (firstCO.posicion + next.posicion) / 2 : firstCO.posicion + 5;
+  normalTurnos.slice(interTurnos.length).forEach((t) => newOrder.push(t));
+  newOrder.forEach((t, i) => { t.posicion = (i + 1) * 10; });
 }
 
 // ─── Lecturas ────────────────────────────────────────────────────────────────
@@ -52,6 +72,8 @@ export function getEstado() {
     waiting,
     nextTres: waiting.slice(0, 3),
     waitingCount: waiting.length,
+    waitingNormal:      waiting.filter((t) => !esIntercalado(t.tipo)).length,
+    waitingIntercalado: waiting.filter((t) =>  esIntercalado(t.tipo)).length,
     config: state.config,
   };
 }
@@ -63,14 +85,10 @@ export function createTurno(tipo: TipoTurno, nombre?: string): Turno {
   const numero = (state.counters[tipo] ?? 0) + 1;
   const codigo = `${tipo}${String(numero).padStart(2, '0')}`;
 
-  let posicion: number;
-  if (tipo === 'AP') {
-    posicion = calcAPPosition(state.turnos);
-  } else {
-    const waiting = state.turnos.filter((t) => t.estado === 'esperando');
-    const maxPos = waiting.length > 0 ? Math.max(...waiting.map((t) => t.posicion)) : 0;
-    posicion = maxPos + 10;
-  }
+  // Posición temporal al final — rebalanceIntercalados la reubica si es intercalado
+  const waiting = state.turnos.filter((t) => t.estado === 'esperando');
+  const maxPos = waiting.length > 0 ? Math.max(...waiting.map((t) => t.posicion)) : 0;
+  const posicion = maxPos + 10;
 
   const turno: Turno = {
     id: state.nextId,
@@ -86,6 +104,11 @@ export function createTurno(tipo: TipoTurno, nombre?: string): Turno {
   state.turnos.push(turno);
   state.counters[tipo] = numero;
   state.nextId++;
+
+  if (esIntercalado(tipo)) {
+    rebalanceIntercalados(state.turnos);
+  }
+
   renormalize(state.turnos);
   writeState(state);
   return turno;
@@ -102,6 +125,12 @@ export function nextTurn(): { prev: Turno | null; next: Turno | null } {
     state.maxAtendidoOrden++;
     current.atendido_orden = state.maxAtendidoOrden;
     current.posicion = 0;
+    appendHistorial({
+      codigo: current.codigo,
+      tipo: current.tipo,
+      ...(current.nombre ? { nombre: current.nombre } : {}),
+      atendido_at: new Date().toISOString(),
+    });
   }
 
   if (nextInLine) {

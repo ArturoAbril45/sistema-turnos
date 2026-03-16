@@ -5,7 +5,7 @@ import Link from 'next/link';
 import type { Turno } from '@/lib/queue';
 import PinModal from '@/components/PinModal';
 
-interface Estado { current: Turno | null; waiting: Turno[]; waitingCount: number }
+interface Estado { current: Turno | null; waiting: Turno[]; waitingCount: number; waitingNormal: number; waitingIntercalado: number }
 
 const TIPO_LABEL: Record<string, { label: string; accent: string; bg: string; border: string }> = {
   CO: { label: 'Consulta Médica',          accent: '#2563eb', bg: '#eff6ff', border: '#bfdbfe' },
@@ -17,7 +17,7 @@ const TIPO_LABEL: Record<string, { label: string; accent: string; bg: string; bo
 };
 
 export default function Consultorio() {
-  const [estado, setEstado]   = useState<Estado>({ current: null, waiting: [], waitingCount: 0 });
+  const [estado, setEstado]   = useState<Estado>({ current: null, waiting: [], waitingCount: 0, waitingNormal: 0, waitingIntercalado: 0 });
   const [loading, setLoading] = useState<string | null>(null);
   const [animKey, setAnimKey] = useState(0);
   const [pinOk, setPinOk]     = useState(false);
@@ -31,7 +31,7 @@ export default function Consultorio() {
       prevCodeRef.current = nuevo;
       setAnimKey((k) => k + 1);
     }
-    setEstado({ current: data.current, waiting: data.waiting ?? [], waitingCount: data.waitingCount });
+    setEstado({ current: data.current, waiting: data.waiting ?? [], waitingCount: data.waitingCount, waitingNormal: data.waitingNormal ?? 0, waitingIntercalado: data.waitingIntercalado ?? 0 });
   }
 
   useEffect(() => {
@@ -141,22 +141,38 @@ export default function Consultorio() {
         </div>
 
         {/* Pacientes en espera */}
-        <div className="w-full max-w-sm bg-white border border-slate-200 rounded-xl px-5 py-4 flex items-center gap-4 shadow-sm">
-          <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
-            <svg xmlns="http://www.w3.org/2000/svg" width={18} height={18} viewBox="0 0 24 24"
-              fill="none" stroke="#64748b" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
-              <circle cx="9" cy="7" r="4"/>
-              <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
-            </svg>
+        <div className="w-full max-w-sm bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+          <div className="px-5 py-3 flex items-center gap-3 border-b border-slate-100">
+            <div className="w-8 h-8 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0">
+              <svg xmlns="http://www.w3.org/2000/svg" width={15} height={15} viewBox="0 0 24 24"
+                fill="none" stroke="#64748b" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+            </div>
+            <div className="flex-1">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-tight">
+                Pacientes en espera
+              </p>
+              <p className="text-2xl font-extrabold text-slate-800 tabular-nums leading-tight">
+                {estado.waitingCount}
+              </p>
+            </div>
           </div>
-          <div className="flex-1">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-tight">
-              Pacientes en espera
-            </p>
-            <p className="text-3xl font-extrabold text-slate-800 tabular-nums leading-tight">
-              {estado.waitingCount}
-            </p>
+          <div className="grid grid-cols-2 divide-x divide-slate-100">
+            <div className="px-4 py-3">
+              <p className="text-[10px] font-bold text-blue-400 uppercase tracking-widest leading-tight mb-0.5">
+                Consultas
+              </p>
+              <p className="text-xl font-extrabold text-blue-700 tabular-nums">{estado.waitingNormal}</p>
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[10px] font-bold text-green-500 uppercase tracking-widest leading-tight mb-0.5">
+                Intercalados
+              </p>
+              <p className="text-xl font-extrabold text-green-600 tabular-nums">{estado.waitingIntercalado}</p>
+            </div>
           </div>
         </div>
       </div>

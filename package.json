@@ -6,11 +6,14 @@
   "main": "electron/main.js",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "build": "next build && cp -r .next/static .next/standalone/.next/static && cp -r public .next/standalone/public",
+    "start": "node .next/standalone/server.js",
     "lint": "eslint",
     "electron": "electron .",
-    "build:exe": "next build && node scripts/build-standalone.js && set CSC_IDENTITY_AUTO_DISCOVERY=false && electron-builder --win --x64"
+    "build:exe": "next build && node scripts/build-standalone.js && set CSC_IDENTITY_AUTO_DISCOVERY=false && electron-builder --win --x64",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build"
   },
   "build": {
     "appId": "com.sistematurno.app",
@@ -26,17 +29,23 @@
       {
         "from": ".next/standalone",
         "to": ".next/standalone",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       },
       {
         "from": ".next/static",
         "to": ".next/standalone/.next/static",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       },
       {
         "from": "public",
         "to": ".next/standalone/public",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
       }
     ],
     "win": {
@@ -52,12 +61,14 @@
     }
   },
   "dependencies": {
+    "@tauri-apps/api": "^2.10.1",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@tauri-apps/cli": "^2.10.1",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
