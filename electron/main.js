@@ -4,6 +4,33 @@ const net        = require('net');
 const path       = require('path');
 const fs         = require('fs');
 
+/* ── Cargar Widevine desde Edge (para Netflix / Amazon Prime) ──────────── */
+function loadWidevine() {
+  const edgeBases = [
+    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application',
+    'C:\\Program Files\\Microsoft\\Edge\\Application',
+  ];
+  for (const base of edgeBases) {
+    try {
+      if (!fs.existsSync(base)) continue;
+      const versions = fs.readdirSync(base).filter(f => /^\d+/.test(f)).sort().reverse();
+      for (const ver of versions) {
+        const widevineDll = path.join(base, ver, 'WidevineCdm', '_platform_specific', 'win_x64', 'widevinecdm.dll');
+        const manifestFile = path.join(base, ver, 'WidevineCdm', 'manifest.json');
+        if (!fs.existsSync(widevineDll)) continue;
+        let cdmVersion = '4.10.2557.0';
+        try { cdmVersion = JSON.parse(fs.readFileSync(manifestFile, 'utf8')).version || cdmVersion; } catch (_) {}
+        app.commandLine.appendSwitch('widevine-cdm-path', widevineDll);
+        app.commandLine.appendSwitch('widevine-cdm-version', cdmVersion);
+        return true;
+      }
+    } catch (_) {}
+  }
+  return false;
+}
+
+loadWidevine();
+
 // Una sola instancia
 if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
 
@@ -17,15 +44,20 @@ let mainWin        = null;
 let chromeProcess  = null;
 
 /* ── Chrome paths (Windows) ────────────────────────────────────────────── */
-const CHROME_PATHS = [
+const BROWSER_PATHS = [
+  // Chrome
   'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
   'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
   process.env.LOCALAPPDATA + '\\Google\\Chrome\\Application\\chrome.exe',
+  // Edge (preinstalado en Windows 10/11)
+  'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+  'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe',
+  process.env.LOCALAPPDATA + '\\Microsoft\\Edge\\Application\\msedge.exe',
 ];
 
 function findChrome() {
-  for (const p of CHROME_PATHS) {
-    try { if (fs.existsSync(p)) return p; } catch (_) {}
+  for (const p of BROWSER_PATHS) {
+    try { if (p && fs.existsSync(p)) return p; } catch (_) {}
   }
   return null;
 }
@@ -34,8 +66,8 @@ function findChrome() {
 function openStreaming(url) {
   const chromePath = findChrome();
   if (!chromePath) {
-    dialog.showErrorBox('Chrome no encontrado',
-      'Instale Google Chrome para usar esta función.');
+    dialog.showErrorBox('Navegador no encontrado',
+      'Instale Google Chrome o Microsoft Edge para usar esta función.');
     return;
   }
 
@@ -147,6 +179,7 @@ function createWindow() {
       webviewTag:       true,
       nodeIntegration:  false,
       contextIsolation: true,
+      plugins:          true,
     },
   });
 

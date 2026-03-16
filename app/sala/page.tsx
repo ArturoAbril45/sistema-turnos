@@ -149,12 +149,13 @@ export default function Sala() {
   }, [isElectron]);
 
   function startStreaming(url: string) {
-    window.electronAPI?.openStreaming(url);
+    // Cargar directo en el webview interno (Widevine habilitado desde Edge)
+    navigate(url);
     setStreamingActive(true);
   }
 
   function stopStreaming() {
-    window.electronAPI?.closeStreaming();
+    navigate('https://www.youtube.com');
     setStreamingActive(false);
   }
 
