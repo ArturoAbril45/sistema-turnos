@@ -40,8 +40,10 @@ const STREAMING = [
 declare global {
   interface Window {
     electronAPI?: {
-      openStreaming:  (url: string) => void;
-      closeStreaming: () => void;
+      openStreaming:        (url: string) => void;
+      closeStreaming:       () => void;
+      openStreamingWindow: (url: string) => void;
+      closeStreamingWindow:() => void;
     };
   }
 }
@@ -150,8 +152,8 @@ export default function Sala() {
 
   function startStreaming(url: string, external: boolean) {
     if (external && window.electronAPI) {
-      // Netflix / Amazon Prime → Edge externo sin bordes, lado izquierdo
-      window.electronAPI.openStreaming(url);
+      // Netflix / Amazon Prime → BrowserWindow hija Electron (Widevine nativo)
+      window.electronAPI.openStreamingWindow(url);
       setStreamingActive(true);
     } else {
       // YouTube → webview interno
@@ -160,7 +162,7 @@ export default function Sala() {
   }
 
   function stopStreaming() {
-    if (window.electronAPI) window.electronAPI.closeStreaming();
+    if (window.electronAPI) window.electronAPI.closeStreamingWindow();
     setStreamingActive(false);
   }
 
