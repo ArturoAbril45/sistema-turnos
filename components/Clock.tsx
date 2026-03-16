@@ -31,12 +31,12 @@ export default function Clock() {
   return (
     <div className="flex items-center gap-3">
       <div className="text-right">
-        <p className="text-slate-800 font-extrabold text-sm tabular-nums leading-tight tracking-tight">
+        <p className="text-white font-extrabold text-sm tabular-nums leading-tight tracking-tight">
           {time}
         </p>
-        <p className="text-slate-400 text-[11px] leading-tight capitalize">{date}</p>
+        <p className="text-white/50 text-[11px] leading-tight capitalize">{date}</p>
       </div>
-      <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+      <div className="w-8 h-8 rounded-lg bg-white/10 border border-white/20 flex items-center justify-center shrink-0">
         <svg xmlns="http://www.w3.org/2000/svg" width={16} height={16} viewBox="0 0 24 24"
           fill="none" stroke="#2563eb" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="10"/>

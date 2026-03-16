@@ -1,6 +1,9 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import Clock from '@/components/Clock';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = { title: 'Sistema de Turnos' };
 
 const MODULES = [
   {
@@ -57,14 +60,28 @@ const MODULES = [
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen flex flex-col relative">
+
+      {/* ── Imagen de fondo ── */}
+      <div className="fixed inset-0 -z-10">
+        <Image
+          src="/doctor-bg.jpg"
+          alt=""
+          fill
+          priority
+          className="object-cover object-center"
+          sizes="100vw"
+        />
+        {/* Capa azulada semitransparente */}
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(160deg, rgba(15,30,80,0.82) 0%, rgba(29,78,216,0.72) 50%, rgba(7,89,133,0.80) 100%)' }} />
+      </div>
 
       {/* ── Top bar ── */}
-      <header className="bg-white border-b border-slate-200 shrink-0">
+      <header className="bg-white/10 backdrop-blur-sm border-b border-white/15 shrink-0">
         <div className="max-w-5xl mx-auto px-6 h-14 flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-green-400" />
-            <span className="text-[11px] text-slate-400 font-medium">Sistema activo</span>
+            <span className="text-[11px] text-white/60 font-medium">Sistema activo</span>
           </div>
           <Clock />
         </div>
@@ -93,13 +110,13 @@ export default function Home() {
 
             {/* Título */}
             <div className="mb-6">
-              <p className="text-[10px] font-bold text-blue-500 uppercase tracking-widest mb-1">
+              <p className="text-[10px] font-bold text-blue-300 uppercase tracking-widest mb-1">
                 Bienvenido
               </p>
-              <h1 className="text-2xl font-extrabold text-slate-900 leading-tight">
+              <h1 className="text-2xl font-extrabold text-white leading-tight">
                 Seleccione su<br className="hidden sm:block" /> módulo de acceso
               </h1>
-              <p className="text-slate-400 text-sm mt-2">
+              <p className="text-white/50 text-sm mt-2">
                 Sistema integrado de gestión de atención médica.
               </p>
             </div>
@@ -108,7 +125,8 @@ export default function Home() {
             <div className="flex flex-col gap-2.5">
               {MODULES.map(({ href, label, description, accent, bg, border, tag, icon }) => (
                 <Link key={href} href={href}
-                  className="group flex items-center gap-4 bg-white border border-slate-200 hover:border-slate-300 rounded-xl px-4 py-3.5 transition-all hover:shadow-sm active:scale-[.99]"
+                  className="group flex items-center gap-4 rounded-xl px-4 py-3.5 transition-all hover:shadow-lg active:scale-[.99] border border-white/15 hover:border-white/30"
+                  style={{ background: 'rgba(255,255,255,0.10)', backdropFilter: 'blur(12px)' }}
                 >
                   {/* Icon */}
                   <div className="shrink-0 w-10 h-10 rounded-lg border flex items-center justify-center"
@@ -119,17 +137,17 @@ export default function Home() {
                   {/* Text */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <p className="font-bold text-slate-800 text-sm leading-tight">{label}</p>
+                      <p className="font-bold text-white text-sm leading-tight">{label}</p>
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded border"
-                        style={{ background: bg, borderColor: border, color: accent }}>
+                        style={{ background: `${accent}25`, borderColor: `${accent}55`, color: '#fff' }}>
                         {tag}
                       </span>
                     </div>
-                    <p className="text-slate-400 text-xs mt-0.5 truncate">{description}</p>
+                    <p className="text-white/50 text-xs mt-0.5 truncate">{description}</p>
                   </div>
 
                   {/* Arrow */}
-                  <svg className="shrink-0 text-slate-300 group-hover:text-slate-500 transition"
+                  <svg className="shrink-0 text-white/25 group-hover:text-white/70 transition"
                     xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
                     stroke="currentColor" strokeWidth={2.5} width={15} height={15}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />
@@ -139,7 +157,7 @@ export default function Home() {
             </div>
 
             {/* Footer */}
-            <p className="text-[11px] text-slate-300 font-medium mt-6">
+            <p className="text-[11px] text-white/30 font-medium mt-6">
               OpenKode · Arturo Abril
             </p>
           </div>
