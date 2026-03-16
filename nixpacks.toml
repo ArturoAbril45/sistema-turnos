@@ -1,8 +1,19 @@
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+
 [phases.install]
 cmds = ["npm install --ignore-scripts --legacy-peer-deps"]
 
 [phases.build]
-cmds = ["npm run build"]
+cmds = [
+  "npx next build",
+  "cp -r .next/static .next/standalone/.next/static",
+  "cp -r public .next/standalone/public"
+]
 
 [start]
 cmd = "node .next/standalone/server.js"
+
+[variables]
+NODE_ENV = "production"
+NEXT_TELEMETRY_DISABLED = "1"

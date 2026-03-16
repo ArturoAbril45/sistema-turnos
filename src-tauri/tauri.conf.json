@@ -1,0 +1,44 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Sistema de Turnos",
+  "version": "1.0.0",
+  "identifier": "com.sistematurno.app",
+  "build": {
+    "beforeDevCommand": "next dev",
+    "devUrl": "http://localhost:3000",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../.next/static"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "Sistema de Turnos",
+        "width": 1920,
+        "height": 1080,
+        "visible": false,
+        "decorations": true,
+        "resizable": true,
+        "url": "http://localhost:3000"
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "icon": ["icons/icon.png"],
+    "resources": {
+      "../.next/standalone": ".next/standalone",
+      "../.next/static": ".next/standalone/.next/static",
+      "../public": ".next/standalone/public"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
+  }
+}
