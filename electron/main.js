@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, screen, utilityProcess } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, screen, utilityProcess, session } = require('electron');
 const { spawn }  = require('child_process');
 const net        = require('net');
 const path       = require('path');
@@ -30,6 +30,8 @@ function loadWidevine() {
 }
 
 loadWidevine();
+app.commandLine.appendSwitch('enable-features', 'PlatformEncryptedDolbyVision,EncryptedMediaEncryptionSchemeQuery');
+app.commandLine.appendSwitch('disable-features', 'RendererCodeIntegrity');
 
 // Una sola instancia
 if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
@@ -239,6 +241,12 @@ app.on('web-contents-created', (_event, contents) => {
 
 /* ── Inicio ────────────────────────────────────────────────────────────── */
 app.whenReady().then(async () => {
+  // Permitir DRM (protectedMediaIdentifier) para Netflix / Amazon Prime
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, callback) => {
+    callback(true);
+  });
+  session.defaultSession.setPermissionCheckHandler(() => true);
+
   if (!isPackaged) {
     try { startNext(); await waitForServer(120); }
     catch (err) { dialog.showErrorBoxSync('Error al iniciar servidor', err.message); app.quit(); return; }
