@@ -174,11 +174,11 @@ export default function Sala() {
     <div className="h-screen flex overflow-hidden select-none bg-white">
 
       {/* ── Sidebar turnos ─────────────────────────────────────────────────── */}
-      <aside className="w-56 h-full flex flex-col shrink-0 border-r border-slate-200 bg-white">
+      <aside className="w-56 h-full flex flex-col shrink-0 border-r border-blue-800 bg-blue-600">
 
-        <div className="px-4 pt-4 pb-3 border-b border-slate-100">
+        <div className="px-4 pt-4 pb-3 border-b border-blue-500">
           <Link href="/"
-            className="flex items-center gap-1.5 text-slate-400 hover:text-slate-600 transition text-xs font-medium w-fit">
+            className="flex items-center gap-1.5 text-blue-200 hover:text-white transition text-xs font-medium w-fit">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
               stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"
               width={12} height={12}><path d="m15 18-6-6 6-6"/></svg>
@@ -187,13 +187,13 @@ export default function Sala() {
         </div>
 
         {/* Turno actual */}
-        <div className="px-5 pt-5 pb-5 border-b border-slate-100">
-          <p className="text-xs font-semibold uppercase tracking-widest text-sky-600 mb-2">
+        <div className="px-5 pt-5 pb-5 border-b border-blue-500">
+          <p className="text-xs font-semibold uppercase tracking-widest text-blue-200 mb-2">
             Atendiendo
           </p>
           <div
             key={animKey}
-            className="font-extrabold tracking-tight text-slate-800 leading-none"
+            className="font-extrabold tracking-tight text-white leading-none"
             style={{
               fontSize: 'clamp(2.8rem, 6vw, 4rem)',
               animation: animKey > 0 ? 'fadeIn .4s ease-out' : undefined,
@@ -205,17 +205,17 @@ export default function Sala() {
 
         {/* Próximos */}
         <div className="px-5 pt-5 flex-1">
-          <p className="text-xs font-semibold uppercase tracking-widest text-sky-600 mb-4">
+          <p className="text-xs font-semibold uppercase tracking-widest text-blue-200 mb-4">
             Próximos
           </p>
           <div className="flex flex-col gap-3">
-            {nextTres.length === 0 && <span className="text-slate-300 text-sm">—</span>}
+            {nextTres.length === 0 && <span className="text-blue-300 text-sm">—</span>}
             {nextTres.map((t, i) => (
               <span key={t.id}
                 className="font-bold tracking-tight leading-none"
                 style={{
                   fontSize: 'clamp(1.4rem, 3vw, 1.9rem)',
-                  color: i === 0 ? '#1e293b' : i === 1 ? '#64748b' : '#94a3b8',
+                  color: i === 0 ? '#ffffff' : i === 1 ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.35)',
                 }}>
                 {t.codigo}
               </span>
@@ -224,9 +224,9 @@ export default function Sala() {
         </div>
 
         {/* En espera */}
-        <div className="px-5 py-4 border-t border-slate-100 bg-slate-50">
-          <p className="text-xs text-slate-400 uppercase tracking-widest mb-0.5">En espera</p>
-          <p className="text-2xl font-extrabold text-slate-800">{waitingCount}</p>
+        <div className="px-5 py-4 border-t border-blue-500 bg-blue-700">
+          <p className="text-xs text-blue-300 uppercase tracking-widest mb-0.5">En espera</p>
+          <p className="text-2xl font-extrabold text-white">{waitingCount}</p>
         </div>
       </aside>
 

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import Clock from '@/components/Clock';
+
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = { title: 'Sistema de Turnos' };
@@ -87,26 +88,12 @@ export default function Home() {
         </div>
       </header>
 
-      {/* ── Cuerpo — layout dos columnas en desktop ── */}
+      {/* ── Cuerpo ── */}
       <main className="flex-1 flex items-center justify-center px-6 py-10">
-        <div className="w-full max-w-5xl flex flex-col lg:flex-row items-center gap-10 lg:gap-16">
-
-          {/* ── Ilustración ── */}
-          <div className="w-full lg:w-1/2 flex items-center justify-center shrink-0">
-            <div className="relative w-full max-w-sm lg:max-w-none">
-              <Image
-                src="/medical-reception.jpg"
-                alt="Atención médica"
-                width={520}
-                height={520}
-                priority
-                className="w-full h-auto drop-shadow-sm"
-              />
-            </div>
-          </div>
+        <div className="w-full max-w-md">
 
           {/* ── Panel de módulos ── */}
-          <div className="w-full lg:w-1/2">
+          <div className="w-full">
 
             {/* Título */}
             <div className="mb-6">
