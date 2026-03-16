@@ -33,6 +33,26 @@ loadWidevine();
 app.commandLine.appendSwitch('enable-features', 'PlatformEncryptedDolbyVision,EncryptedMediaEncryptionSchemeQuery');
 app.commandLine.appendSwitch('disable-features', 'RendererCodeIntegrity');
 
+/* ── Activar "contenido protegido" en preferencias de Chromium ─────────── */
+(function enableProtectedContent() {
+  try {
+    const appData = process.env.APPDATA;
+    if (!appData) return;
+    const defaultDir = path.join(appData, app.getName(), 'Default');
+    const prefsPath  = path.join(defaultDir, 'Preferences');
+    if (!fs.existsSync(defaultDir)) fs.mkdirSync(defaultDir, { recursive: true });
+    let prefs = {};
+    if (fs.existsSync(prefsPath)) {
+      try { prefs = JSON.parse(fs.readFileSync(prefsPath, 'utf8')); } catch (_) {}
+    }
+    if (!prefs.profile) prefs.profile = {};
+    if (!prefs.profile.default_content_setting_values)
+      prefs.profile.default_content_setting_values = {};
+    prefs.profile.default_content_setting_values.protected_media_identifier = 1;
+    fs.writeFileSync(prefsPath, JSON.stringify(prefs));
+  } catch (_) {}
+})();
+
 // Una sola instancia
 if (!app.requestSingleInstanceLock()) { app.quit(); process.exit(0); }
 
