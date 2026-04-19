@@ -477,13 +477,16 @@ export default function Mostrador() {
               <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">
                 Tipo de atención
               </label>
-              <div className="flex flex-col gap-1.5">
-                {TIPOS.map(({ tipo, label, Icon: TipoIcon, hex, bg, border, text }) => {
+
+              {/* Mobile: grilla 2 col / Desktop: lista */}
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-1 sm:gap-1.5">
+                {TIPOS.map(({ tipo, label, short, Icon: TipoIcon, hex, bg, border, text }) => {
                   const count   = tipoCounts[tipo] ?? 0;
                   const loading = busy === tipo;
+                  const prefijo = getLetraFicha(tipo);
                   return (
                     <button key={tipo} onClick={() => generarTurno(tipo)} disabled={!!busy}
-                      className="relative flex items-center gap-3 px-3.5 py-3 rounded border text-left transition active:scale-[.98] disabled:opacity-60 hover:shadow-sm group"
+                      className="relative flex flex-col sm:flex-row items-center sm:items-center gap-2 sm:gap-3 px-3 py-3 sm:px-3.5 rounded border text-center sm:text-left transition active:scale-[.98] disabled:opacity-60 hover:shadow-sm group"
                       style={{ background: bg, borderColor: border }}
                     >
                       {/* Icon */}
@@ -494,9 +497,9 @@ export default function Mostrador() {
 
                       {/* Código + label */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-extrabold text-sm leading-none" style={{ color: hex }}>{tipo}</span>
-                          <span className="text-xs font-semibold leading-none" style={{ color: text }}>{label}</span>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-0.5 sm:gap-2">
+                          <span className="font-extrabold text-base leading-none" style={{ color: hex }}>{prefijo}</span>
+                          <span className="text-[11px] font-semibold leading-tight" style={{ color: text }}>{short}</span>
                         </div>
                       </div>
 
@@ -508,8 +511,8 @@ export default function Mostrador() {
                         </span>
                       )}
 
-                      {/* Flecha */}
-                      <svg className="shrink-0 text-slate-300 group-hover:translate-x-0.5 transition-transform"
+                      {/* Flecha solo en desktop */}
+                      <svg className="hidden sm:block shrink-0 text-slate-300 group-hover:translate-x-0.5 transition-transform"
                         xmlns="http://www.w3.org/2000/svg" width={13} height={13} viewBox="0 0 24 24"
                         fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
                         <path d="m9 18 6-6-6-6"/>
