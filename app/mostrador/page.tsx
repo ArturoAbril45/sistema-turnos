@@ -326,7 +326,7 @@ export default function Mostrador() {
                   </div>
                   {/* Botones adherir al turno actual */}
                   {!reordenando && (
-                    <div className="flex items-center gap-0.5 pr-2 shrink-0 flex-wrap justify-end max-w-[140px]">
+                    <div className="flex items-center gap-1.5 pr-3 shrink-0 flex-wrap justify-end max-w-[180px]">
                       {getFichasDisponibles(estado.current.tipo).map(fi => {
                         const key = `adh-${estado.current!.id}-${fi.tipo}`;
                         return (
@@ -334,7 +334,7 @@ export default function Mostrador() {
                             onClick={() => adherir(estado.current!.id, fi.tipo)}
                             disabled={!!busyAdherir}
                             title={`Adherir ${fi.short}`}
-                            className="text-[10px] font-extrabold px-1.5 py-0.5 rounded border transition active:scale-95 disabled:opacity-40"
+                            className="text-[11px] font-extrabold px-2.5 py-1 rounded-md border transition active:scale-95 disabled:opacity-40 shadow-sm"
                             style={{ background: fi.bg, borderColor: fi.border, color: fi.text }}>
                             {busyAdherir === key ? '…' : `+${getLetraFicha(fi.tipo)}`}
                           </button>
@@ -412,7 +412,7 @@ export default function Mostrador() {
                         </div>
                       )}
                       {!reordenando && (
-                        <div className="flex items-center gap-0.5 flex-wrap justify-end max-w-[130px]">
+                        <div className="flex items-center gap-1.5 flex-wrap justify-end max-w-[180px]">
                           {getFichasDisponibles(t.tipo).map(fi => {
                             const key = `adh-${t.id}-${fi.tipo}`;
                             return (
@@ -420,7 +420,7 @@ export default function Mostrador() {
                                 onClick={() => adherir(t.id, fi.tipo)}
                                 disabled={!!busyAdherir || !!busy}
                                 title={`Adherir ${fi.short}`}
-                                className="text-[10px] font-extrabold px-1.5 py-0.5 rounded border transition active:scale-95 disabled:opacity-40"
+                                className="text-[11px] font-extrabold px-2.5 py-1 rounded-md border transition active:scale-95 disabled:opacity-40 shadow-sm"
                                 style={{ background: fi.bg, borderColor: fi.border, color: fi.text }}>
                                 {busyAdherir === key ? '…' : `+${getLetraFicha(fi.tipo)}`}
                               </button>
