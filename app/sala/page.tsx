@@ -72,10 +72,10 @@ function playChime() {
 }
 
 function buildSpeechText(codigo: string): string {
-  // CM must be spelled out letter by letter to avoid "centímetros"
+  // Deletrear CM para evitar que el TTS en español lo lea como "centímetros"
   if (/^CM/i.test(codigo)) {
     const num = codigo.slice(2);
-    return `Turno C M ${num}`;
+    return `Turno, Ce, Eme, ${num}`;
   }
   return `Turno ${codigo.replace(/([A-Za-z]+)(\d+)/, '$1 $2')}`;
 }
