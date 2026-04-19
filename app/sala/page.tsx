@@ -222,7 +222,7 @@ export default function Sala() {
     <div className="h-screen flex overflow-hidden select-none bg-white">
 
       {/* ── Sidebar turnos ─────────────────────────────────────────────────── */}
-      <aside className="w-56 h-full flex flex-col shrink-0 border-r border-blue-800 bg-blue-600">
+      <aside className="w-72 h-full flex flex-col shrink-0 border-r border-blue-800 bg-blue-600">
 
         <div className="px-4 pt-4 pb-3 border-b border-blue-500">
           <Link href="/"
@@ -243,7 +243,7 @@ export default function Sala() {
             key={animKey}
             className="font-extrabold tracking-tight text-white leading-none"
             style={{
-              fontSize: 'clamp(4.5rem, 9vw, 7rem)',
+              fontSize: 'clamp(4rem, 7vw, 6rem)',
               animation: animKey > 0 ? 'fadeIn .4s ease-out' : undefined,
             }}
           >
