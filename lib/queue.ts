@@ -1,5 +1,9 @@
 import { readState, writeState, TipoTurno, Turno, appendHistorial } from './store';
 
+const CODIGO_PREFIX: Record<TipoTurno, string> = {
+  CO: 'C', AP: 'A', CM: 'CM', PR: 'P', NE: 'N', GL: 'G',
+};
+
 export type { TipoTurno, Turno };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -83,7 +87,7 @@ export function getEstado() {
 export function createTurno(tipo: TipoTurno, nombre?: string): Turno {
   const state = readState();
   const numero = (state.counters[tipo] ?? 0) + 1;
-  const codigo = `${tipo}${String(numero).padStart(2, '0')}`;
+  const codigo = `${CODIGO_PREFIX[tipo]}${numero}`;
 
   // Posición temporal al final — rebalanceIntercalados la reubica si es intercalado
   const waiting = state.turnos.filter((t) => t.estado === 'esperando');
@@ -220,4 +224,20 @@ export function setConfig(clave: string, valor: string): void {
   // Si el valor es numérico (ej. volume) lo guarda como número, si no como string
   (state.config as Record<string, unknown>)[clave] = isNaN(parsed) ? valor : parsed;
   writeState(state);
+}
+
+export function adherirFicha(turnoId: number, tipo: TipoTurno): string | null {
+  const state = readState();
+  const turno = state.turnos.find(t => t.id === turnoId);
+  if (!turno || !['esperando', 'en_atencion'].includes(turno.estado)) return null;
+
+  const numero = (state.counters[tipo] ?? 0) + 1;
+  const codigo = `${CODIGO_PREFIX[tipo]}${numero}`;
+  state.counters[tipo] = numero;
+
+  if (!turno.fichasAdicionales) turno.fichasAdicionales = [];
+  turno.fichasAdicionales.push(codigo);
+
+  writeState(state);
+  return codigo;
 }

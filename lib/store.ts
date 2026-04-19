@@ -22,6 +22,7 @@ export interface Turno {
   posicion: number;
   atendido_orden?: number;
   created_at: string;
+  fichasAdicionales?: string[];
 }
 
 interface State {

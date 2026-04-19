@@ -64,17 +64,26 @@ function playChime() {
         osc.connect(gain); gain.connect(ctx.destination);
         osc.type = 'sine'; osc.frequency.value = freq;
         gain.gain.setValueAtTime(0, ctx.currentTime + t);
-        gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + t + 0.04);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.4);
-        osc.start(ctx.currentTime + t); osc.stop(ctx.currentTime + t + 0.45);
+        gain.gain.linearRampToValueAtTime(0.75, ctx.currentTime + t + 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.5);
+        osc.start(ctx.currentTime + t); osc.stop(ctx.currentTime + t + 0.55);
       });
   } catch { /* noop */ }
+}
+
+function buildSpeechText(codigo: string): string {
+  // CM must be spelled out letter by letter to avoid "centímetros"
+  if (/^CM/i.test(codigo)) {
+    const num = codigo.slice(2);
+    return `Turno C M ${num}`;
+  }
+  return `Turno ${codigo.replace(/([A-Za-z]+)(\d+)/, '$1 $2')}`;
 }
 
 function speakTurno(codigo: string, wv: WebviewElement | null) {
   try {
     window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(`Turno ${codigo.replace(/(\D+)(\d+)/, '$1 $2')}`);
+    const utter = new SpeechSynthesisUtterance(buildSpeechText(codigo));
     utter.lang = 'es-ES';
     utter.rate = 0.82;
     utter.onstart = () => {
@@ -234,7 +243,7 @@ export default function Sala() {
             key={animKey}
             className="font-extrabold tracking-tight text-white leading-none"
             style={{
-              fontSize: 'clamp(2.8rem, 6vw, 4rem)',
+              fontSize: 'clamp(4.5rem, 9vw, 7rem)',
               animation: animKey > 0 ? 'fadeIn .4s ease-out' : undefined,
             }}
           >

@@ -125,6 +125,17 @@ export default function Consultorio() {
                 }}>
                 {estado.current?.codigo ?? <span className="text-slate-200">—</span>}
               </p>
+              {(estado.current?.fichasAdicionales ?? []).length > 0 && (
+                <div className="flex items-center justify-center gap-2 mt-2 flex-wrap">
+                  {(estado.current!.fichasAdicionales!).map(fa => (
+                    <span key={fa}
+                      className="font-extrabold tracking-tight"
+                      style={{ fontSize: 'clamp(1.8rem, 8vw, 3rem)', color: tipoInfo?.accent ?? '#64748b' }}>
+                      + {fa}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
             {tipoInfo && (

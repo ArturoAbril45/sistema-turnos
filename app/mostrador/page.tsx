@@ -24,6 +24,20 @@ const TIPOS = [
 interface Estado  { current: Turno | null; waiting: Turno[]; waitingCount: number }
 interface EditMod { id: number; codigo: string }
 
+function getFichasDisponibles(tipo: string) {
+  if (['AP', 'GL', 'NE'].includes(tipo)) {
+    return TIPOS.filter(t => ['AP', 'GL', 'NE'].includes(t.tipo));
+  }
+  return [...TIPOS];
+}
+
+function getLetraFicha(tipo: string): string {
+  const prefixes: Record<string, string> = {
+    CO: 'C', AP: 'A', CM: 'CM', PR: 'P', NE: 'N', GL: 'G',
+  };
+  return prefixes[tipo] ?? tipo;
+}
+
 const TIPO_LABEL: Record<string, string> = {
   CO: 'Consulta', AP: 'Aplicación', CM: 'Certificado',
   PR: 'Procedimiento', NE: 'Nebulización', GL: 'Glucosa',
@@ -45,6 +59,7 @@ export default function Mostrador() {
   const [browserUrl, setBrowserUrl]         = useState('');
   const [confirmLimpiar, setConfirmLimpiar] = useState(false);
   const [busy, setBusy]                     = useState<string | null>(null);
+  const [busyAdherir, setBusyAdherir]       = useState<string | null>(null);
   const [showHistorial, setShowHistorial]   = useState(false);
   const [historial, setHistorial]           = useState<HistEntry[]>([]);
   const [nombre, setNombre]                 = useState('');
@@ -77,6 +92,13 @@ export default function Mostrador() {
   });
   const siguiente      = () => run('sig',  () => fetch('/api/siguiente', { method: 'POST' }).then(() => {}));
   const cancelar       = (id: number) => run(`del-${id}`, () => fetch(`/api/turnos/${id}`, { method: 'DELETE' }).then(() => {}));
+  const adherir        = async (turnoId: number, tipo: string) => {
+    const key = `adh-${turnoId}-${tipo}`;
+    setBusyAdherir(key);
+    await fetch(`/api/turnos/${turnoId}/adherir`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tipo }) });
+    await fetchEstado();
+    setBusyAdherir(null);
+  };
   const guardarEdicion = () => run('edit', async () => {
     if (!editModal) return;
     await fetch(`/api/turnos/${editModal.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ codigo: editModal.codigo }) });
@@ -273,64 +295,148 @@ export default function Mostrador() {
 
           {/* Lista */}
           <div className="flex-1 overflow-y-auto px-4 py-3 flex flex-col gap-1.5">
-            {lista.length === 0 && <EmptyQueue />}
+
+            {/* Turno en atención — fijo arriba con verde */}
+            {estado.current && (
+              <div className="bg-green-50 border border-green-300 flex flex-col overflow-hidden"
+                style={{ borderLeftWidth: 3, borderLeftColor: '#16a34a' }}>
+                <div className="flex items-center">
+                  <span className="w-9 text-center shrink-0">
+                    <span className="text-[9px] font-bold text-green-600 uppercase">✓</span>
+                  </span>
+                  <div className="flex-1 flex items-center gap-3 py-2.5 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-extrabold text-2xl tracking-tight leading-none text-green-700">
+                        {estado.current.codigo}
+                      </span>
+                      {(estado.current.fichasAdicionales ?? []).map(fa => (
+                        <span key={fa} className="font-bold text-lg tracking-tight text-green-600">
+                          + {fa}
+                        </span>
+                      ))}
+                    </div>
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded border bg-green-100 text-green-700 border-green-300">
+                      En atención
+                    </span>
+                    {estado.current.nombre && (
+                      <span className="text-[11px] text-green-600 font-medium truncate max-w-[120px]" title={estado.current.nombre}>
+                        {estado.current.nombre}
+                      </span>
+                    )}
+                  </div>
+                  {/* Botones adherir al turno actual */}
+                  {!reordenando && (
+                    <div className="flex items-center gap-0.5 pr-2 shrink-0 flex-wrap justify-end max-w-[140px]">
+                      {getFichasDisponibles(estado.current.tipo).map(fi => {
+                        const key = `adh-${estado.current!.id}-${fi.tipo}`;
+                        return (
+                          <button key={fi.tipo}
+                            onClick={() => adherir(estado.current!.id, fi.tipo)}
+                            disabled={!!busyAdherir}
+                            title={`Adherir ${fi.short}`}
+                            className="text-[10px] font-extrabold px-1.5 py-0.5 rounded border transition active:scale-95 disabled:opacity-40"
+                            style={{ background: fi.bg, borderColor: fi.border, color: fi.text }}>
+                            {busyAdherir === key ? '…' : `+${getLetraFicha(fi.tipo)}`}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {lista.length === 0 && !estado.current && <EmptyQueue />}
+            {lista.length === 0 && estado.current && (
+              <div className="flex-1 flex items-center justify-center py-10">
+                <p className="text-sm text-slate-300 font-semibold">Sin más turnos en espera</p>
+              </div>
+            )}
+
             {lista.map((t, i) => {
               const ti = TIPOS.find(tp => tp.tipo === t.tipo)!;
+              const fichasExtra = t.fichasAdicionales ?? [];
               return (
                 <div key={t.id}
                   draggable={reordenando}
                   onDragStart={() => onDragStart(i)} onDragEnter={() => onDragEnter(i)}
                   onDragEnd={onDragEnd} onDragOver={e => e.preventDefault()}
-                  className={`bg-white border border-slate-200 flex items-center overflow-hidden transition ${
+                  className={`bg-white border border-slate-200 flex flex-col overflow-hidden transition ${
                     reordenando ? 'cursor-grab hover:border-blue-300 hover:shadow-sm' : 'hover:border-slate-300'
                   }`}
                   style={{ borderLeftWidth: 3, borderLeftColor: ti.hex }}
                 >
-                  {/* Posición */}
-                  <span className="w-9 text-center text-xs font-bold text-slate-300 shrink-0">{i + 1}</span>
+                  <div className="flex items-center">
+                    {/* Posición */}
+                    <span className="w-9 text-center text-xs font-bold text-slate-300 shrink-0">{i + 1}</span>
 
-                  {/* Info */}
-                  <div className="flex-1 flex items-center gap-3 py-3 min-w-0">
-                    <span className="font-extrabold text-2xl tracking-tight leading-none shrink-0"
-                      style={{ color: ti.hex }}>
-                      {t.codigo}
-                    </span>
-                    <div className="flex flex-col min-w-0 gap-0.5">
-                      <span className="inline-flex items-center gap-1 text-[11px] font-semibold w-fit px-2 py-0.5 rounded border"
-                        style={{ background: ti.bg, color: ti.text, borderColor: ti.border }}>
-                        <ti.Icon size={10} />
-                        {ti.short}
-                      </span>
-                      {t.nombre && (
-                        <span className="text-[11px] text-slate-500 font-medium truncate max-w-[150px]" title={t.nombre}>
-                          {t.nombre}
+                    {/* Info */}
+                    <div className="flex-1 flex items-center gap-3 py-2.5 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-extrabold text-2xl tracking-tight leading-none shrink-0"
+                          style={{ color: ti.hex }}>
+                          {t.codigo}
                         </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Acciones */}
-                  <div className="flex items-center gap-0.5 pr-2 shrink-0">
-                    {reordenando && (
-                      <div className="flex flex-col gap-0.5 mr-1">
-                        <button onClick={() => mover(i, -1)} disabled={i === 0}
-                          className="p-1 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-25 transition">
-                          <ChevronUpIcon size={11} />
-                        </button>
-                        <button onClick={() => mover(i, 1)} disabled={i === lista.length - 1}
-                          className="p-1 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-25 transition">
-                          <ChevronDownIcon size={11} />
-                        </button>
+                        {fichasExtra.map(fa => (
+                          <span key={fa} className="font-bold text-lg tracking-tight" style={{ color: ti.hex }}>
+                            + {fa}
+                          </span>
+                        ))}
                       </div>
-                    )}
-                    <button onClick={() => setEditModal({ id: t.id, codigo: t.codigo })}
-                      className="p-2 rounded text-slate-300 hover:text-blue-600 hover:bg-blue-50 transition active:scale-95">
-                      <PencilIcon size={14} />
-                    </button>
-                    <button onClick={() => cancelar(t.id)}
-                      className="p-2 rounded text-slate-300 hover:text-red-500 hover:bg-red-50 transition active:scale-95">
-                      <XMarkIcon size={14} />
-                    </button>
+                      <div className="flex flex-col min-w-0 gap-0.5">
+                        <span className="inline-flex items-center gap-1 text-[11px] font-semibold w-fit px-2 py-0.5 rounded border"
+                          style={{ background: ti.bg, color: ti.text, borderColor: ti.border }}>
+                          <ti.Icon size={10} />
+                          {ti.short}
+                        </span>
+                        {t.nombre && (
+                          <span className="text-[11px] text-slate-500 font-medium truncate max-w-[150px]" title={t.nombre}>
+                            {t.nombre}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Acciones */}
+                    <div className="flex items-center gap-0.5 pr-2 shrink-0">
+                      {reordenando && (
+                        <div className="flex flex-col gap-0.5 mr-1">
+                          <button onClick={() => mover(i, -1)} disabled={i === 0}
+                            className="p-1 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-25 transition">
+                            <ChevronUpIcon size={11} />
+                          </button>
+                          <button onClick={() => mover(i, 1)} disabled={i === lista.length - 1}
+                            className="p-1 rounded bg-slate-100 hover:bg-slate-200 disabled:opacity-25 transition">
+                            <ChevronDownIcon size={11} />
+                          </button>
+                        </div>
+                      )}
+                      {!reordenando && (
+                        <div className="flex items-center gap-0.5 flex-wrap justify-end max-w-[130px]">
+                          {getFichasDisponibles(t.tipo).map(fi => {
+                            const key = `adh-${t.id}-${fi.tipo}`;
+                            return (
+                              <button key={fi.tipo}
+                                onClick={() => adherir(t.id, fi.tipo)}
+                                disabled={!!busyAdherir || !!busy}
+                                title={`Adherir ${fi.short}`}
+                                className="text-[10px] font-extrabold px-1.5 py-0.5 rounded border transition active:scale-95 disabled:opacity-40"
+                                style={{ background: fi.bg, borderColor: fi.border, color: fi.text }}>
+                                {busyAdherir === key ? '…' : `+${getLetraFicha(fi.tipo)}`}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <button onClick={() => setEditModal({ id: t.id, codigo: t.codigo })}
+                        className="p-2 rounded text-slate-300 hover:text-blue-600 hover:bg-blue-50 transition active:scale-95">
+                        <PencilIcon size={14} />
+                      </button>
+                      <button onClick={() => cancelar(t.id)}
+                        className="p-2 rounded text-slate-300 hover:text-red-500 hover:bg-red-50 transition active:scale-95">
+                        <XMarkIcon size={14} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
