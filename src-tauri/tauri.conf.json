@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "next dev",
     "devUrl": "http://localhost:3000",
-    "beforeBuildCommand": "npm run build",
+    "beforeBuildCommand": "",
     "frontendDist": "../.next/static"
   },
   "app": {
@@ -19,7 +19,7 @@
         "visible": false,
         "decorations": true,
         "resizable": true,
-        "url": "http://localhost:3000"
+        "url": ""
       }
     ],
     "security": {

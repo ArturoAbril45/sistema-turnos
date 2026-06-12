@@ -1,28 +1,14 @@
-use std::net::TcpStream;
-use std::process::{Child, Command};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 use tauri::Manager;
 
 pub struct AppState {
-    pub next_process: Mutex<Option<Child>>,
     pub wv2_raw: Arc<Mutex<Option<isize>>>,
-    pub tauri_wv_hwnd: Arc<Mutex<Option<isize>>>, // HWND del WebView de wry para restaurar
+    pub tauri_wv_hwnd: Arc<Mutex<Option<isize>>>,
 }
 
-const PORT: u16 = 3000;
 const SIDEBAR_W: i32 = 224;
-
-fn wait_for_server(retries: u32) -> bool {
-    for _ in 0..retries {
-        if TcpStream::connect(("127.0.0.1", PORT)).is_ok() {
-            return true;
-        }
-        thread::sleep(Duration::from_millis(500));
-    }
-    false
-}
 
 #[cfg(target_os = "windows")]
 fn create_wv2(
@@ -178,6 +164,26 @@ fn close_wv2_on_main(raw: isize) {
 }
 
 #[cfg(target_os = "windows")]
+fn refresh_wv2_bounds(raw: isize, x: i32, y: i32, w: i32, h: i32) {
+    use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2Controller;
+    use windows::Win32::Foundation::RECT;
+    unsafe {
+        let controller: ICoreWebView2Controller = std::mem::transmute_copy(&raw);
+        let bounds = RECT {
+            left: x,
+            top: y,
+            right: x + w - 8,
+            bottom: y + h - 8,
+        };
+        let _ = controller.SetBounds(bounds);
+        let _ = controller.SetIsVisible(true);
+        // Notificar al WebView2 que el parent cambió posición/tamaño (evita pantalla blanca)
+        let _ = controller.NotifyParentWindowPositionChanged();
+        std::mem::forget(controller);
+    }
+}
+
+#[cfg(target_os = "windows")]
 fn restore_tauri_wv(tauri_wv_raw: isize, full_w: i32, full_h: i32) {
     use windows::Win32::Foundation::HWND;
     use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, SWP_NOACTIVATE, SWP_NOZORDER};
@@ -273,56 +279,64 @@ fn close_streaming(app: tauri::AppHandle) {
 pub fn run() {
     tauri::Builder::default()
         .manage(AppState {
-            next_process: Mutex::new(None),
             wv2_raw: Arc::new(Mutex::new(None)),
             tauri_wv_hwnd: Arc::new(Mutex::new(None)),
         })
         .setup(|app| {
             let app_handle = app.handle().clone();
-            let is_dev = cfg!(debug_assertions);
-            let resources = if !is_dev {
-                Some(app.path().resource_dir().ok())
-            } else {
-                None
-            };
 
-            thread::spawn(move || {
-                let mut child: Option<Child> = None;
+            // La app usa Railway como backend remoto — mostrar ventana directamente
+            if let Some(main) = app_handle.get_webview_window("main") {
+                let _ = main.show();
+                let _ = main.set_focus();
 
-                if !is_dev {
-                    if let Some(Some(res_dir)) = resources {
-                        let standalone = res_dir.join(".next").join("standalone");
-                        let server_js = standalone.join("server.js");
-                        let user_data = app_handle
-                            .path()
-                            .app_data_dir()
-                            .unwrap_or_else(|_| standalone.clone());
-
-                        let proc = Command::new("node")
-                            .arg(&server_js)
-                            .current_dir(&standalone)
-                            .env("PORT", PORT.to_string())
-                            .env("HOSTNAME", "127.0.0.1")
-                            .env("NODE_ENV", "production")
-                            .env("DATA_DIR", user_data.to_str().unwrap_or(""))
-                            .env("NEXT_TELEMETRY_DISABLED", "1")
-                            .spawn();
-
-                        child = proc.ok();
+                // Refrescar WebView2 al recuperar foco, resize, move o maximizar/restaurar
+                let app_ev = app_handle.clone();
+                main.on_window_event(move |event| {
+                    let should_refresh = matches!(
+                        event,
+                        tauri::WindowEvent::Focused(true)
+                            | tauri::WindowEvent::Resized(_)
+                            | tauri::WindowEvent::Moved(_)
+                    );
+                    if !should_refresh {
+                        return;
                     }
-                }
-
-                if wait_for_server(120) {
-                    if let Some(main) = app_handle.get_webview_window("main") {
-                        let _ = main.show();
-                        let _ = main.set_focus();
+                    let raw = *app_ev.state::<AppState>().wv2_raw.lock().unwrap();
+                    let tauri_wv_raw = *app_ev.state::<AppState>().tauri_wv_hwnd.lock().unwrap();
+                    if raw.is_none() {
+                        return;
                     }
-                }
+                    let raw = raw.unwrap();
+                    let app_ev2 = app_ev.clone();
+                    // Pequeño delay para que Windows termine de restaurar la ventana
+                    thread::spawn(move || {
+                        thread::sleep(Duration::from_millis(50));
+                        let app_ev3 = app_ev2.clone();
+                        let _ = app_ev2.run_on_main_thread(move || {
+                            let Some(win) = app_ev3.get_webview_window("main") else { return };
+                            let scale = win.scale_factor().unwrap_or(1.0);
+                            let inner = win.inner_size().unwrap_or_default();
+                            let sidebar_w_phys = (SIDEBAR_W as f64 * scale).round() as i32;
+                            let content_w_phys = inner.width as i32 - sidebar_w_phys;
+                            let content_h_phys = inner.height as i32;
 
-                if let Some(mut c) = child {
-                    let _ = c.wait();
-                }
-            });
+                            #[cfg(target_os = "windows")]
+                            {
+                                refresh_wv2_bounds(raw, sidebar_w_phys, 0, content_w_phys, content_h_phys);
+                                if let Some(tw_raw) = tauri_wv_raw {
+                                    use windows::Win32::Foundation::HWND;
+                                    use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, SWP_NOACTIVATE, SWP_NOZORDER};
+                                    unsafe {
+                                        let tauri_wv = HWND(tw_raw as *mut _);
+                                        let _ = SetWindowPos(tauri_wv, None, 0, 0, sidebar_w_phys, content_h_phys, SWP_NOZORDER | SWP_NOACTIVATE);
+                                    }
+                                }
+                            }
+                        });
+                    });
+                });
+            }
 
             Ok(())
         })
